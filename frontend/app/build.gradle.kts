@@ -40,7 +40,8 @@ android {
         buildConfigField(
             "String",
             "GOOGLE_CLIENT_ID",
-            "\"${localProperty("GOOGLE_CLIENT_ID")}\""
+            "\"${localProperty("GOOGLE_CLIENT_ID", 
+                "618096872603-9sa040q2l3rnurpksgsqhbgag57fbmft.apps.googleusercontent.com")}\""
         )
     }
 
@@ -86,4 +87,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.credentials:credentials:1.7.0-alpha03")
+    implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
+    implementation("com.google.android.libraries.identity.googleid:googleid:<latest version>")
 }
