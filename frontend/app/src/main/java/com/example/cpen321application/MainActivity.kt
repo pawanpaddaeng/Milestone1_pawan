@@ -41,6 +41,7 @@ import androidx.credentials.CustomCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +61,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
+var firstName: String? = "Not"
+var lastName: String? = "Logged In"
 @Composable
 fun ThreeButtonsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -89,7 +91,17 @@ fun ThreeButtonsScreen(modifier: Modifier = Modifier) {
                     val googleToken = triggerGoogleSignIn(context)
                     if (googleToken != null){
                         statusText = "Token!!!!!!!"
+                        val requestBody = AuthRequest(idToken = googleToken)
+                        val response = serverApi.retrofitService.authAndInfo(requestBody)
+                        if(response.isSuccessful){
+                            val authData: AuthResponse? = response.body()
+                            statusText = "Welcome ${authData?.user?.firstName}"
+                        } else {
+                            statusText = "Server error code: ${response.code()}, " +
+                                    "${response.errorBody()?.string()}"
+                        }
                     }
+
                 }
                 //Toast.makeText(context, "First action executed", Toast.LENGTH_SHORT).show()
             },
@@ -108,6 +120,10 @@ fun ThreeButtonsScreen(modifier: Modifier = Modifier) {
 //                    val result = simulateNetworkCall()
 //                    statusText = result
 //                }
+                scope.launch {
+                    val result = serverApi.retrofitService.getStatus()
+                    statusText = result.status
+                }
             },
             modifier = Modifier
                 //.fillMaxWidth()
@@ -168,6 +184,8 @@ private suspend fun triggerGoogleSignIn(context: Context): String? {
 
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 val idToken = googleIdTokenCredential.idToken
+                lastName = googleIdTokenCredential.familyName
+                firstName = googleIdTokenCredential.givenName
 
                 // PRINT TOKEN TO LOGCAT
                 print("SUCCESS! ID Token:\n$idToken")
@@ -197,6 +215,7 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
         modifier = modifier
     )
 }
+
 
 private suspend fun fetchHealthStatus(apiBaseUrl: String): String = withContext(Dispatchers.IO) {
     val healthUrl = "${apiBaseUrl.trimEnd('/')}/health"

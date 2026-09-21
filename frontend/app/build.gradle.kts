@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    //id("org.jetbrains.kotlin.plugin.serialization") version "1.8.10"
 }
 
 // Machine-specific config (SDK path, backend URL, OAuth client ID) lives in
@@ -90,4 +91,15 @@ dependencies {
     implementation("androidx.credentials:credentials:1.7.0-alpha03")
     implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
     implementation("com.google.android.libraries.identity.googleid:googleid:<latest version>")
+    // Retrofit & Kotlinx Serialization Converter
+//    // Retrofit
+//    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+//    // Kotlin serialization
+//    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
+//    // Retrofit with Kotlin serialization Converter
+//    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
+//    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
 }

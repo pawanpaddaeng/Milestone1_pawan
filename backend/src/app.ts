@@ -12,6 +12,8 @@ export function createApp(): Express {
 
   app.post('/api/auth/google', async (req: Request<{}, {}, GoogleAuthRequestBody>, res: Response) => {
     const { idToken } = req.body;
+    console.log("Received an authorization request");
+    
 
     if (!idToken) {
       return res.status(400).json({ error: 'idToken is required' });
@@ -30,22 +32,15 @@ export function createApp(): Express {
         return res.status(401).json({ error: 'Invalid token payload' });
       }
 
-      // Extract user profile information safely verified by Google
-      const userId = payload.sub;          // Unique Google User ID
-      const email = payload.email;        // User's email address
-      const name = payload.name;          // User's full name
-      const picture = payload.picture;    // User's profile image URL
+      const firstName = payload.given_name || '';
+      const lastName = payload.family_name || '';
+      console.log(`Successfully authenticated user`);
 
-      console.log(`Successfully authenticated user: ${email} (${userId})`);
-
-      // TODO: Look up or create user in your database, generate your session token (JWT/Cookie)
       return res.status(200).json({
         message: 'Authentication successful',
         user: {
-          userId,
-          email,
-          name,
-          picture,
+          firstName,
+          lastName,
         },
       });
     } catch (error) {
@@ -56,6 +51,24 @@ export function createApp(): Express {
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  app.get('/getIP4', async (_req, res) => {
+    const networkInterfaces = os.networkInterfaces();
+
+    for (const interfaceName of Object.keys(networkInterfaces)) {
+      const interfaces = networkInterfaces[interfaceName];
+      if (!interfaces) continue;
+
+      for (const iface of interfaces) {
+        // Skip internal (127.0.0.1) and non-IPv4 addresses
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+
+    return '127.0.0.1';
   });
 
   app.use((_req, res) => {
