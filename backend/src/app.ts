@@ -1,7 +1,8 @@
 import express, { type Express } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import os from 'os';
-const WebSocket = require('ws');
+//const WebSocket = require('ws');
+import WebSocket from 'ws'
 
 export function createApp(): Express {
   const app = express();
