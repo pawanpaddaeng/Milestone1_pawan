@@ -86,134 +86,6 @@ class MainActivity : ComponentActivity() {
 var firstName: String? = "Not"
 var lastName: String? = "Logged In"
 
-@Composable
-fun ThreeButtonsScreen(
-    onNavigateToDetailsScreen: (String) -> Unit,
-    onNavigateToPixelScreen: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    var statusText by remember { mutableStateOf("Press any button to trigger an action") }
-    val scope = rememberCoroutineScope()
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Status Display
-        //StatusDisplayCard(statusText = statusText)
-        Text(
-            text = statusText,
-            //style = CPEN321ApplicationTheme.typography.bodyLarge,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        // Button 1: Immediate Action
-        Button(
-            onClick = {
-                statusText = "Button 1 clicked!"
-                scope.launch {
-                    val googleToken = triggerGoogleSignIn(context)
-                    //get user logged in and save the name/profile(later)
-                    if (googleToken != null){
-                        statusText = "Token!!!!!!!"
-                        val requestBody = AuthRequest(idToken = googleToken)
-                        val response = serverApi.retrofitService.authAndInfo(requestBody)
-                        if(response.isSuccessful){
-                            val authData: AuthResponse? = response.body()
-                            firstName = authData?.user?.firstName
-                            lastName = authData?.user?.lastName
-                            statusText = "Welcome ${authData?.user?.firstName}, wait for details..."
-                            //generate the output:
-                            val serverIPRes = serverApi.retrofitService.getServerIp4()
-                            var serverIP: String? = "Could not get"
-                            if(serverIPRes.isSuccessful){
-                                val ipBody: ServerInfo? = serverIPRes.body()
-                                serverIP = ipBody?.msg
-                            }
-                            val clientIP = getClientIP4()
-                            val serverTimeRes = serverApi.retrofitService.getServerTime()
-                            var serverTime: String? = "Could not get"
-                            if(serverTimeRes.isSuccessful){
-                                val timeBody: ServerInfo? = serverTimeRes.body()
-                                serverTime = timeBody?.msg
-                            }
-                            val clientTime = getLocalTimeString()
-                            val dev : User = serverApi.retrofitService.getAuthName()
-                            statusText = """
-                                Status: System Diagnostics Ready
-                                --------------------------------
-                                Server Public IP: $serverIP
-                                Client IP: $clientIP
-                                Server Time: $serverTime
-                                Client Time: $clientTime
-                                Developer: ${dev.firstName} ${dev.lastName}
-                                User Signed In: $firstName $lastName
-                            """.trimIndent()
-
-                            onNavigateToDetailsScreen(statusText)
-
-                        } else {
-                            statusText = "Server error code: ${response.code()}, " +
-                                    "${response.errorBody()?.string()}"
-                        }
-                    }
-
-                }
-                //Toast.makeText(context, "First action executed", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier
-                //.fillMaxWidth()
-                .padding(vertical = 6.dp)
-        ) {
-            Text("Task1 : Sign in and info")
-        }
-
-        // Button 2: Async Background Task
-        Button(
-            onClick = {
-                statusText = "Running background task..."
-                onNavigateToPixelScreen()
-            },
-            modifier = Modifier
-                //.fillMaxWidth()
-                .padding(vertical = 6.dp)
-        ) {
-            Text("Fetch Data (Async)")
-        }
-
-        // Button 3: Custom Action / Reset
-        Button(
-            onClick = {
-                statusText = "Press any button to trigger an action"
-                statusText = """
-                    Status: System Diagnostics Ready
-                    
-                    Server Public IP: 203.0.113.195
-                    Client IP: 10.0.2.15
-                    Server Time: 23:38:05 GMT+00:00
-                    Client Time: 23 23 23 23 23 
-                    Developer: Pawanpreet Padda
-                    User: Pawanpreet Padda
-                """.trimIndent()
-//                statusText = getLocalTimeString()
-//                scope.launch {
-//                    statusText = getClientIP4()
-//                }
-
-                //Toast.makeText(context, "State Reset", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier
-                //.fillMaxWidth()
-                .padding(vertical = 6.dp)
-        ) {
-            Text("Reset Status")
-        }
-    }
-}
 
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
@@ -226,8 +98,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable("three_buttons") {
             ThreeButtonsScreen(
                 onNavigateToDetailsScreen = { status ->
-                    // URL-encode strings containing special characters, spaces, or newlines
-                    //val encodedStatus = URLEncoder.encode(status, StandardCharsets.UTF_8.toString())
                     val encodedStatus = Uri.encode(status)
                     navController.navigate("detail_screen/$encodedStatus")
                     //navController.navigate("detail_screen")
@@ -239,9 +109,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             )
         }
 
-//        composable("detail_screen") {
-//            DetailScreen(onBack = { navController.popBackStack() } )
-//        }
         composable(
             route = "detail_screen/{statusData}",
             arguments = listOf(
@@ -263,89 +130,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun DetailScreen(statusData: String, onBack: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = "Welcome to the Details Screen!")
-        Text(text = statusData)
-        Button(onClick = onBack) {
-            Text("Go Back")
-        }
-    }
-}
-
-@Composable
-fun PixelArtScreen(onBack: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = "Welcome to the Pixel Screen!")
-        Button(onClick = onBack) {
-            Text("Go Back")
-        }
-    }
-}
-
-@Composable
-fun StatusDisplayCard(
-    statusText: String,
-    modifier: Modifier = Modifier
-) {
-    ElevatedCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(bottom = 24.dp)
-            .animateContentSize(), // Smoothly resizes the card when text changes size
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 6.dp // Shadow depth
-        ),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-        ),
-        shape = MaterialTheme.shapes.large
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Header Tag
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "CONSOLE OUTPUT",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-
-            // Dynamic Status Text Body
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace // Gives an API/diagnostic terminal look
-                ),
-                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3
-            )
-        }
-    }
-}
 
 //private val credentialManager = CredentialManager.create(context)
 fun Context.findActivity(): Activity? = when (this) {
@@ -353,7 +137,7 @@ fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
-private suspend fun triggerGoogleSignIn(context: Context): String? {
+suspend fun triggerGoogleSignIn(context: Context): String? {
     val activityContext = context.findActivity()
         ?: throw IllegalStateException("Google Sign-In requires an Activity Context")
 

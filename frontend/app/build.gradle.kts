@@ -44,6 +44,12 @@ android {
             "\"${localProperty("GOOGLE_CLIENT_ID", 
                 "618096872603-9sa040q2l3rnurpksgsqhbgag57fbmft.apps.googleusercontent.com")}\""
         )
+        buildConfigField(
+            "String",
+            "API_WEB_SOCKET",
+            "\"${localProperty("API_WEB_SOCKET",
+                "ws://10.0.2.2:8080")}\""
+        )
     }
 
     buildTypes {
@@ -103,4 +109,5 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

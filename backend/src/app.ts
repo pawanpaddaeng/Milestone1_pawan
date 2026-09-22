@@ -1,11 +1,37 @@
 import express, { type Express } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import os from 'os';
+const WebSocket = require('ws');
 
 export function createApp(): Express {
   const app = express();
   app.use(express.json())
   const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+  const courseWs = new WebSocket('wss://8.229.22.124');
+
+  //start websocket to transfer pixels to client
+  const server = new WebSocket.Server({ port: 8080 });
+
+  let clients = new Set();
+
+  //add clients to set when connected
+  server.on('connection', (ws) => {
+    console.log("CLIENT CONNECTED TO WEBSOCKET")
+    clients.add(ws);
+    ws.on('close', () => clients.delete(ws));
+  });
+
+  // forward every incoming pixel to all connected clients
+  courseWs.on('message', (data) => {
+    console.log("Sending Pixel")
+    const payload = data.toString();
+    for (let client of clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    }
+  });
 
   interface GoogleAuthRequestBody {
     idToken: string;
