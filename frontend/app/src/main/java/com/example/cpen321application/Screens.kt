@@ -29,6 +29,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.google.gson.Gson
 import okhttp3.*
+import android.os.Handler
+import android.os.Looper
 
 
 data class PixelUpdate(val x: Int, val y: Int, val color: String)
@@ -58,12 +60,12 @@ fun ThreeButtonsScreen(
         // Button 1: Immediate Action
         Button(
             onClick = {
-                statusText = "Button 1 clicked!"
+                statusText = "Starting Task 1 login..."
                 scope.launch {
                     val googleToken = triggerGoogleSignIn(context)
                     //get user logged in and save the name/profile(later)
                     if (googleToken != null){
-                        statusText = "Token!!!!!!!"
+                        statusText = "Verifying login..."
                         val requestBody = AuthRequest(idToken = googleToken)
                         val response = serverApi.retrofitService.authAndInfo(requestBody)
                         if(response.isSuccessful){
@@ -73,21 +75,21 @@ fun ThreeButtonsScreen(
                             statusText = "Welcome ${authData?.user?.firstName}, wait for details..."
                             //generate the output:
                             val serverIPRes = serverApi.retrofitService.getServerIp4()
-                            var serverIP: String? = "Could not get"
+                            var serverIP: String? = "Could not get IP"
                             if(serverIPRes.isSuccessful){
                                 val ipBody: ServerInfo? = serverIPRes.body()
                                 serverIP = ipBody?.msg
                             }
                             val clientIP = getClientIP4()
                             val serverTimeRes = serverApi.retrofitService.getServerTime()
-                            var serverTime: String? = "Could not get"
+                            var serverTime: String? = "Could not get time"
                             if(serverTimeRes.isSuccessful){
                                 val timeBody: ServerInfo? = serverTimeRes.body()
                                 serverTime = timeBody?.msg
                             }
                             val clientTime = getLocalTimeString()
                             val dev : User = serverApi.retrofitService.getAuthName()
-                            statusText = """
+                            val task1Details= """
                                 Status: System Diagnostics Ready
                                 --------------------------------
                                 Server Public IP: $serverIP
@@ -98,7 +100,7 @@ fun ThreeButtonsScreen(
                                 User Signed In: $firstName $lastName
                             """.trimIndent()
 
-                            onNavigateToDetailsScreen(statusText)
+                            onNavigateToDetailsScreen(task1Details)
 
                         } else {
                             statusText = "Server error code: ${response.code()}, " +
@@ -118,14 +120,14 @@ fun ThreeButtonsScreen(
         // Button 2: Async Background Task
         Button(
             onClick = {
-                statusText = "Running background task..."
+                statusText = "Starting..."
                 onNavigateToPixelScreen()
             },
             modifier = Modifier
                 //.fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
-            Text("Fetch Data (Async)")
+            Text("Get Pixel Art")
         }
 
         // Button 3: Custom Action / Reset
@@ -187,11 +189,12 @@ fun PixelArtScreen(
         }
     }
 
+
     // Connect to your WebSocket relay service when screen enters composition
     DisposableEffect(websocketURL) {
         val client = PixelWebSocketClient(websocketURL) { update ->
             try {
-                // Parse hex color string (e.g., "#FF0000")
+                // parse color string
                 val parsedColor = Color(update.color.toColorInt())
                 if (update.x in 0..15 && update.y in 0..15) {
                     gridState[update.x to update.y] = parsedColor
@@ -227,6 +230,17 @@ fun PixelArtScreen(
                 .background(Color(0xFFF8F9FA))
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
+                val cellSizeX = size.width / 16f
+                val cellSizeY = size.height / 16f
+
+                // draw each pixel cell stored in gridState
+                gridState.forEach { (coord, color) ->
+                    drawRect(
+                        color = color,
+                        topLeft = Offset(coord.first * cellSizeX, coord.second * cellSizeY),
+                        size = Size(cellSizeX, cellSizeY)
+                    )
+                }
                 drawRect(
                     color = Color(0xFFD3D3D3), // Change to your preferred border color
                     style = Stroke(width = 2.dp.toPx()) // Thickness of outer border

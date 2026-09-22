@@ -25,10 +25,10 @@ export function createApp(): Express {
 
   // forward every incoming pixel to all connected clients
   courseWs.on('message', (data) => {
-    console.log("Sending Pixel")
     const payload = data.toString();
     for (let client of clients) {
       if (client.readyState === WebSocket.OPEN) {
+        console.log("Sending Pixel")
         client.send(payload);
       }
     }
