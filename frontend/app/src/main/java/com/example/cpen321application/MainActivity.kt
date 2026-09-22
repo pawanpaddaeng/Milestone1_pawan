@@ -9,14 +9,21 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +35,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.material3.HorizontalDivider
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import java.net.HttpURLConnection
 import java.net.URL
@@ -38,9 +52,19 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.CustomCredential
+import androidx.navigation.compose.rememberNavController
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import androidx.navigation.navArgument
+import androidx.navigation.NavType
+import android.net.Uri
+import kotlinx.coroutines.*
+import kotlin.time.Duration.Companion.milliseconds
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,81 +77,83 @@ class MainActivity : ComponentActivity() {
                         apiBaseUrl = BuildConfig.API_BASE_URL,
                         modifier = Modifier.padding(innerPadding)
                     )*/
-                    ThreeButtonsScreen(modifier = Modifier.padding(innerPadding))
+                    //ThreeButtonsScreen(modifier = Modifier.padding(innerPadding))
+                    AppNavigation(modifier = Modifier.padding((innerPadding)))
                 }
             }
 
         }
     }
 }
+var firstName: String? = "Not"
+var lastName: String? = "Logged In"
+
 
 @Composable
-fun ThreeButtonsScreen(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    var statusText by remember { mutableStateOf("Press any button to trigger an action") }
-    val scope = rememberCoroutineScope()
+fun AppNavigation(modifier: Modifier = Modifier) {
+    val navController = rememberNavController()
+    val coroutineScope = rememberCoroutineScope()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    fun startGlobalTimer(totalSeconds: Int) {
+        coroutineScope.launch {
+            // Wait for user-defined duration (seconds -> milliseconds)
+            delay((totalSeconds * 1000L).milliseconds)
+
+            // Force navigation to TimeUpScreen regardless of current active screen
+            navController.navigate("TimeUpScreen")
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = "three_buttons"
     ) {
-        // Status Display
-        Text(
-            text = statusText,
-            //style = CPEN321ApplicationTheme.typography.bodyLarge,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        // Button 1: Immediate Action
-        Button(
-            onClick = {
-                statusText = "Button 1 clicked!"
-                scope.launch {
-                    val googleToken = triggerGoogleSignIn(context)
-                    if (googleToken != null){
-                        statusText = "Token!!!!!!!"
-                    }
-                }
-                //Toast.makeText(context, "First action executed", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier
-                //.fillMaxWidth()
-                .padding(vertical = 6.dp)
-        ) {
-            Text("First Action")
+        composable("three_buttons") {
+            ThreeButtonsScreen(
+                onNavigateToDetailsScreen = { status ->
+                    val encodedStatus = Uri.encode(status)
+                    navController.navigate("detail_screen/$encodedStatus")
+                    //navController.navigate("detail_screen")
+                },
+                onNavigateToPixelScreen = {
+                    navController.navigate(("pixel_screen"))
+                },
+                onNavigateToTimeScreen = {
+                    navController.navigate(("TimeInputScreen"))
+                },
+                modifier = modifier
+            )
         }
 
-        // Button 2: Async Background Task
-        Button(
-            onClick = {
-                statusText = "Running background task..."
-//                coroutineScope.launch {
-//                    val result = simulateNetworkCall()
-//                    statusText = result
-//                }
-            },
-            modifier = Modifier
-                //.fillMaxWidth()
-                .padding(vertical = 6.dp)
-        ) {
-            Text("Fetch Data (Async)")
+        composable(
+            route = "detail_screen/{statusData}",
+            arguments = listOf(
+                navArgument("statusData") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            // Extract the string argument from the backStackEntry
+            val statusData = backStackEntry.arguments?.getString("statusData") ?: "No Data"
+
+            DetailScreen(
+                statusData = statusData,
+                onBack = {
+                    navController.popBackStack() }
+            )
         }
 
-        // Button 3: Custom Action / Reset
-        Button(
-            onClick = {
-                statusText = "Press any button to trigger an action"
-                //Toast.makeText(context, "State Reset", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier
-                //.fillMaxWidth()
-                .padding(vertical = 6.dp)
-        ) {
-            Text("Reset Status")
+        composable ("pixel_screen") {
+            PixelArtScreen(onBack = { navController.popBackStack() } )
         }
+
+        composable ("TimeInputScreen"){
+            TimeInputScreen(onTimeSubmitted = { time ->
+                startGlobalTimer(time)
+                navController.popBackStack() },
+                onBack = { navController.popBackStack() })
+        }
+
+        composable("TimeUpScreen") {
+            TimeUpScreen(onBack = { navController.popBackStack() })}
     }
 }
 
@@ -137,7 +163,7 @@ fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
-private suspend fun triggerGoogleSignIn(context: Context): String? {
+suspend fun triggerGoogleSignIn(context: Context): String? {
     val activityContext = context.findActivity()
         ?: throw IllegalStateException("Google Sign-In requires an Activity Context")
 
@@ -197,6 +223,7 @@ fun Greeting(apiBaseUrl: String, modifier: Modifier = Modifier) {
         modifier = modifier
     )
 }
+
 
 private suspend fun fetchHealthStatus(apiBaseUrl: String): String = withContext(Dispatchers.IO) {
     val healthUrl = "${apiBaseUrl.trimEnd('/')}/health"

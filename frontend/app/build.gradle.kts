@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    //id("org.jetbrains.kotlin.plugin.serialization") version "1.8.10"
 }
 
 // Machine-specific config (SDK path, backend URL, OAuth client ID) lives in
@@ -42,6 +43,12 @@ android {
             "GOOGLE_CLIENT_ID",
             "\"${localProperty("GOOGLE_CLIENT_ID", 
                 "618096872603-9sa040q2l3rnurpksgsqhbgag57fbmft.apps.googleusercontent.com")}\""
+        )
+        buildConfigField(
+            "String",
+            "API_WEB_SOCKET",
+            "\"${localProperty("API_WEB_SOCKET",
+                "ws://10.0.2.2:8080")}\""
         )
     }
 
@@ -90,4 +97,17 @@ dependencies {
     implementation("androidx.credentials:credentials:1.7.0-alpha03")
     implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
     implementation("com.google.android.libraries.identity.googleid:googleid:<latest version>")
+    // Retrofit & Kotlinx Serialization Converter
+//    // Retrofit
+//    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+//    // Kotlin serialization
+//    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
+//    // Retrofit with Kotlin serialization Converter
+//    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
+//    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
