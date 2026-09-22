@@ -63,6 +63,8 @@ import java.nio.charset.StandardCharsets
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import android.net.Uri
+import kotlinx.coroutines.*
+import kotlin.time.Duration.Companion.milliseconds
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,6 +92,17 @@ var lastName: String? = "Logged In"
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+    val coroutineScope = rememberCoroutineScope()
+
+    fun startGlobalTimer(totalSeconds: Int) {
+        coroutineScope.launch {
+            // Wait for user-defined duration (seconds -> milliseconds)
+            delay((totalSeconds * 1000L).milliseconds)
+
+            // Force navigation to TimeUpScreen regardless of current active screen
+            navController.navigate("TimeUpScreen")
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -104,6 +117,9 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 },
                 onNavigateToPixelScreen = {
                     navController.navigate(("pixel_screen"))
+                },
+                onNavigateToTimeScreen = {
+                    navController.navigate(("TimeInputScreen"))
                 },
                 modifier = modifier
             )
@@ -120,16 +136,26 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 
             DetailScreen(
                 statusData = statusData,
-                onBack = { navController.popBackStack() }
+                onBack = {
+                    navController.popBackStack() }
             )
         }
 
         composable ("pixel_screen") {
             PixelArtScreen(onBack = { navController.popBackStack() } )
         }
+
+        composable ("TimeInputScreen"){
+            TimeInputScreen(onTimeSubmitted = { time ->
+                startGlobalTimer(time)
+                navController.popBackStack() },
+                onBack = { navController.popBackStack() })
+        }
+
+        composable("TimeUpScreen") {
+            TimeUpScreen(onBack = { navController.popBackStack() })}
     }
 }
-
 
 //private val credentialManager = CredentialManager.create(context)
 fun Context.findActivity(): Activity? = when (this) {

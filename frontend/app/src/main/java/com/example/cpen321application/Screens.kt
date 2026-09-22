@@ -31,6 +31,12 @@ import com.google.gson.Gson
 import okhttp3.*
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 
 
 data class PixelUpdate(val x: Int, val y: Int, val color: String)
@@ -38,6 +44,7 @@ data class PixelUpdate(val x: Int, val y: Int, val color: String)
 fun ThreeButtonsScreen(
     onNavigateToDetailsScreen: (String) -> Unit,
     onNavigateToPixelScreen: () -> Unit,
+    onNavigateToTimeScreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -114,10 +121,9 @@ fun ThreeButtonsScreen(
                 //.fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
-            Text("Task1 : Sign in and info")
+            Text("Sign in and info")
         }
 
-        // Button 2: Async Background Task
         Button(
             onClick = {
                 statusText = "Starting..."
@@ -134,28 +140,13 @@ fun ThreeButtonsScreen(
         Button(
             onClick = {
                 statusText = "Press any button to trigger an action"
-                statusText = """
-                    Status: System Diagnostics Ready
-                    
-                    Server Public IP: 203.0.113.195
-                    Client IP: 10.0.2.15
-                    Server Time: 23:38:05 GMT+00:00
-                    Client Time: 23 23 23 23 23 
-                    Developer: Pawanpreet Padda
-                    User: Pawanpreet Padda
-                """.trimIndent()
-//                statusText = getLocalTimeString()
-//                scope.launch {
-//                    statusText = getClientIP4()
-//                }
-
-                //Toast.makeText(context, "State Reset", Toast.LENGTH_SHORT).show()
+                onNavigateToTimeScreen()
             },
             modifier = Modifier
                 //.fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
-            Text("Reset Status")
+            Text("Set Timer")
         }
     }
 }
@@ -171,6 +162,160 @@ fun DetailScreen(statusData: String, onBack: () -> Unit) {
         Text(text = statusData)
         Button(onClick = onBack) {
             Text("Go Back")
+        }
+    }
+}
+
+@Composable
+fun TimeInputScreen(
+    onTimeSubmitted: (totalSeconds: Int) -> Unit,
+    onBack: () -> Unit = {}
+) {
+    var minutesText by remember { mutableStateOf("") }
+    var secondsText by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val focusManager = LocalFocusManager.current
+
+    val minutes = minutesText.toIntOrNull() ?: 0
+    val seconds = secondsText.toIntOrNull() ?: 0
+    val totalSeconds = (minutes * 60) + seconds
+
+    fun handleSubmit() {
+        focusManager.clearFocus()
+        if (seconds >= 60) {
+            errorMessage = "Seconds must be between 0 and 59"
+            return
+        }
+        if (totalSeconds <= 0) {
+            errorMessage = "Please enter a duration greater than 0"
+            return
+        }
+        errorMessage = null
+        onTimeSubmitted(totalSeconds)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Set Duration",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Input Fields (Minutes : Seconds)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Minutes Field
+            OutlinedTextField(
+                value = minutesText,
+                onValueChange = { input ->
+                    if (input.all { it.isDigit() } && input.length <= 3) {
+                        minutesText = input
+                        errorMessage = null
+                    }
+                },
+                label = { Text("Minutes") },
+//                placeholder = { Text("00") },
+//                keyboardOptions = KeyboardOptions(
+//                    keyboardType = KeyboardType.Number,
+//                    imeAction = ImeAction.Next
+//                ),
+//                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+
+            Text(
+                text = ":",
+                style = MaterialTheme.typography.headlineLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+
+            // Seconds Field
+            OutlinedTextField(
+                value = secondsText,
+                onValueChange = { input ->
+                    if (input.all { it.isDigit() } && input.length <= 2) {
+                        secondsText = input
+                        errorMessage = null
+                    }
+                },
+                label = { Text("Seconds") },
+//                placeholder = { Text("00") },
+//                keyboardOptions = KeyboardOptions(
+//                    keyboardType = KeyboardType.Number,
+//                    imeAction = ImeAction.Done
+//                ),
+//                keyboardActions = KeyboardActions(
+//                    onDone = { handleSubmit() }
+//                ),
+//                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // Inline Validation Error Display
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = errorMessage!!,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Submit Button
+        Button(
+            onClick = { handleSubmit() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Confirm")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(onClick = onBack) {
+            Text("Back")
+        }
+    }
+}
+
+@Composable
+fun TimeUpScreen(
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Time's Up!",
+            )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(
+            onClick = onBack,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Back")
         }
     }
 }
