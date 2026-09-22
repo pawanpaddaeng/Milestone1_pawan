@@ -37,9 +37,22 @@ data class AuthRequest(
     val idToken : String?
 )
 
+data class ServerInfo(
+    val msg : String
+)
+
 interface NetworkConnection {
     @GET("health")
     suspend fun getStatus() : StatusResponse
+
+    @GET("getIP4")
+    suspend fun getServerIp4() : Response<ServerInfo>
+
+    @GET("getTime")
+    suspend fun  getServerTime() : Response<ServerInfo>
+
+    @GET("getAuthorName")
+    suspend fun getAuthName() : User
 
     @POST("api/auth/google")
     suspend fun authAndInfo(@Body request: AuthRequest) : Response<AuthResponse>

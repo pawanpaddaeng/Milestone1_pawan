@@ -108,6 +108,13 @@ export function createApp(): Express {
     res.status(200).json({msg:`${timeStr} ${gmtOffsetStr}`})
   })
 
+  app.get('/getAuthorName', async(_req, res) => {
+    res.status(200).json({
+          firstName: "Pawanpreet",
+          lastName: "Padda"
+      });
+  });
+
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
   });
