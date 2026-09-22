@@ -72,20 +72,6 @@ export function createApp(): Express {
         msg: error,
       });
     }
-    // for (const interfaceName of Object.keys(networkInterfaces)) {
-    //   const interfaces = networkInterfaces[interfaceName];
-    //   if (!interfaces) continue;
-
-    //   for (const iface of interfaces) {
-    //     // Skip internal (127.0.0.1) and non-IPv4 addresses
-    //     if (iface.family === 'IPv4' && !iface.internal) {
-    //       address = iface.address;
-    //     }
-    //   }
-    // }
-    // return res.status(200).json({
-    //     msg: address,
-    //   });
   });
 
   app.get('/getTime', async (_req, res) => {
