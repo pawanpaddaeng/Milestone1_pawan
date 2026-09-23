@@ -1,23 +1,20 @@
 package com.example.cpen321application
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.Inet4Address
-import java.net.NetworkInterface
 import java.text.SimpleDateFormat
-import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.net.URL
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import retrofit2.http.GET
+import kotlin.math.abs
 
-//retrofit for getting ip address
+/*
+    A file with some helper function needed to get the details
+    for task1
+ */
+
+// retrofit for getting client's ip from icanhazip
 private val retrofit = Retrofit.Builder()
     .baseUrl("https://icanhazip.com/") // Fixed: added trailing slash
     .addConverterFactory(ScalarsConverterFactory.create())
@@ -34,11 +31,14 @@ object GetClientIpApi { // Fixed: PascalCase for object name
     }
 }
 
+/*  helper function to get system time and return it as the
+    required 24-hour format of : HH:MM:SS GMT+/-hh:mm
+ */
 fun getLocalTimeString(): String {
     val now = Date()
     val timeZone = TimeZone.getDefault()
 
-    // 1. Format local time in 24-hour format (hh:mm:ss)
+    // format local time in 24-hour format (hh:mm:ss)
     val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.US).apply {
         this.timeZone = timeZone
     }
@@ -46,8 +46,8 @@ fun getLocalTimeString(): String {
 
     // 2. Format timezone offset as GMT+hh:mm or GMT-hh:mm
     val offsetMillis = timeZone.getOffset(now.time)
-    val offsetHours = Math.abs(offsetMillis) / (1000 * 60 * 60)
-    val offsetMinutes = (Math.abs(offsetMillis) / (1000 * 60)) % 60
+    val offsetHours = abs(offsetMillis) / (1000 * 60 * 60)
+    val offsetMinutes = (abs(offsetMillis) / (1000 * 60)) % 60
     val sign = if (offsetMillis >= 0) "+" else "-"
 
     val gmtOffsetStr = String.format(
@@ -61,8 +61,9 @@ fun getLocalTimeString(): String {
     return "$timeStr $gmtOffsetStr"
 }
 
+// helper function that return's the client's public ip
 suspend fun getClientIP4(): String{
-    var ip: String = "Undefined"
+    var ip = "Undefined"
     try {
         ip = GetClientIpApi.retrofitService.icanIP4().trim()
         println("Public IP: $ip")

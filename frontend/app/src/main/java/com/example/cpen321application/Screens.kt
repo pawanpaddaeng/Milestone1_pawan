@@ -29,17 +29,19 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.google.gson.Gson
 import okhttp3.*
-import android.os.Handler
-import android.os.Looper
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 
-
+/*  class for the pixel stream updates sent be websocket
+    helps directly parse an update to usable object with gson
+ */
 data class PixelUpdate(val x: Int, val y: Int, val color: String)
+
+/*
+    Main home screen with 3 buttons:
+    Receives three callback functions that connect it to other
+    screens through AppNavigation
+ */
 @Composable
 fun ThreeButtonsScreen(
     onNavigateToDetailsScreen: (String) -> Unit,
@@ -58,45 +60,51 @@ fun ThreeButtonsScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
+        // a text box for some interactive updates
         Text(
             text = statusText,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // Button 1: Immediate Action
+        // Button 1: Does Sign in and if successful displays the server info
         Button(
             onClick = {
                 statusText = "Starting Task 1 login..."
                 scope.launch {
                     val googleToken = triggerGoogleSignIn(context)
-                    //get user logged in and save the name/profile(later)
+
+                    // valid token start the authentication with server
                     if (googleToken != null){
                         statusText = "Verifying login..."
                         val requestBody = AuthRequest(idToken = googleToken)
-                        val response = serverApi.retrofitService.authAndInfo(requestBody)
-                        if(response.isSuccessful){
-                            val authData: AuthResponse? = response.body()
-                            firstName = authData?.user?.firstName
-                            lastName = authData?.user?.lastName
-                            statusText = "Welcome ${authData?.user?.firstName}, wait for details..."
-                            //generate the output:
-                            val serverIPRes = serverApi.retrofitService.getServerIp4()
-                            var serverIP: String? = "Could not get IP"
-                            if(serverIPRes.isSuccessful){
-                                val ipBody: ServerInfo? = serverIPRes.body()
-                                serverIP = ipBody?.msg
-                            }
-                            val clientIP = getClientIP4()
-                            val serverTimeRes = serverApi.retrofitService.getServerTime()
-                            var serverTime: String? = "Could not get time"
-                            if(serverTimeRes.isSuccessful){
-                                val timeBody: ServerInfo? = serverTimeRes.body()
-                                serverTime = timeBody?.msg
-                            }
-                            val clientTime = getLocalTimeString()
-                            val dev : User = serverApi.retrofitService.getAuthName()
-                            val task1Details= """
+                        var response: retrofit2.Response<AuthResponse>?
+                        try{
+                            response = ServerApi.retrofitService.authAndInfo(requestBody)
+                            if(response.isSuccessful){
+                                // server verified account now get all the needed info to display
+                                val authData: AuthResponse? = response.body()
+                                firstName = authData?.user?.firstName
+                                lastName = authData?.user?.lastName
+                                statusText = "Welcome ${authData?.user?.firstName}, wait for details..."
+
+                                val serverIPRes = ServerApi.retrofitService.getServerIp4()
+                                var serverIP: String? = "Could not get IP"
+                                if(serverIPRes.isSuccessful){
+                                    val ipBody: ServerInfo? = serverIPRes.body()
+                                    serverIP = ipBody?.msg
+                                }
+                                val clientIP = getClientIP4()
+                                val serverTimeRes = ServerApi.retrofitService.getServerTime()
+                                var serverTime: String? = "Could not get time"
+                                if(serverTimeRes.isSuccessful){
+                                    val timeBody: ServerInfo? = serverTimeRes.body()
+                                    serverTime = timeBody?.msg
+                                }
+                                val clientTime = getLocalTimeString()
+                                val dev : User = ServerApi.retrofitService.getAuthName()
+
+                                // generate the formatted string to display
+                                val task1Details= """
                                 Status: System Diagnostics Ready
                                 --------------------------------
                                 Server Public IP: $serverIP
@@ -107,43 +115,51 @@ fun ThreeButtonsScreen(
                                 User Signed In: $firstName $lastName
                             """.trimIndent()
 
-                            onNavigateToDetailsScreen(task1Details)
+                                onNavigateToDetailsScreen(task1Details)
 
-                        } else {
-                            statusText = "Server error code: ${response.code()}, " +
-                                    "${response.errorBody()?.string()}"
+                            } else {
+                                // could not contact server, either server offline or check IP
+                                statusText = "Server error code: ${response.code()}, " +
+                                        "${response.errorBody()?.string()}"
+                            }
+                        }catch (e: Exception){
+                            statusText = "Cannot Reach Server: $e"
                         }
+
+                    } else {
+                        statusText = """ 
+                            Error: No Google Account in the device
+                            Steps: Go to Device Settings and have at least one Google Account
+                        """.trimIndent()
                     }
 
                 }
             },
             modifier = Modifier
-                //.fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
             Text("Sign in and info")
         }
 
+        // a button that takes you to the pixel art screen
         Button(
             onClick = {
                 statusText = "Starting..."
                 onNavigateToPixelScreen()
             },
             modifier = Modifier
-                //.fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
             Text("Get Pixel Art")
         }
 
-        // Button 3: Custom Action / Reset
+        // button to take you to enter time screen
         Button(
             onClick = {
-                statusText = "Press any button to trigger an action"
+                statusText = "Preparing to set timer..."
                 onNavigateToTimeScreen()
             },
             modifier = Modifier
-                //.fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
             Text("Set Timer")
@@ -151,6 +167,7 @@ fun ThreeButtonsScreen(
     }
 }
 
+// a simple screen to display the information for Milestone 1 task 1
 @Composable
 fun DetailScreen(statusData: String, onBack: () -> Unit) {
     Column(
@@ -166,6 +183,7 @@ fun DetailScreen(statusData: String, onBack: () -> Unit) {
     }
 }
 
+// a screen to take user time input and call the callback function with that input
 @Composable
 fun TimeInputScreen(
     onTimeSubmitted: (totalSeconds: Int) -> Unit,
@@ -181,6 +199,7 @@ fun TimeInputScreen(
     val seconds = secondsText.toIntOrNull() ?: 0
     val totalSeconds = (minutes * 60) + seconds
 
+    // check the values submitted or ask again
     fun handleSubmit() {
         focusManager.clearFocus()
         if (seconds >= 60) {
@@ -206,10 +225,9 @@ fun TimeInputScreen(
             text = "Set Duration",
             style = MaterialTheme.typography.headlineMedium
         )
-
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Input Fields (Minutes : Seconds)
+        // put input fields in a row
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
@@ -225,12 +243,6 @@ fun TimeInputScreen(
                     }
                 },
                 label = { Text("Minutes") },
-//                placeholder = { Text("00") },
-//                keyboardOptions = KeyboardOptions(
-//                    keyboardType = KeyboardType.Number,
-//                    imeAction = ImeAction.Next
-//                ),
-//                singleLine = true,
                 modifier = Modifier.weight(1f)
             )
 
@@ -251,20 +263,11 @@ fun TimeInputScreen(
                     }
                 },
                 label = { Text("Seconds") },
-//                placeholder = { Text("00") },
-//                keyboardOptions = KeyboardOptions(
-//                    keyboardType = KeyboardType.Number,
-//                    imeAction = ImeAction.Done
-//                ),
-//                keyboardActions = KeyboardActions(
-//                    onDone = { handleSubmit() }
-//                ),
-//                singleLine = true,
                 modifier = Modifier.weight(1f)
             )
         }
 
-        // Inline Validation Error Display
+        // display error from bad input
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -275,8 +278,6 @@ fun TimeInputScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
-
-        // Submit Button
         Button(
             onClick = { handleSubmit() },
             modifier = Modifier
@@ -285,15 +286,14 @@ fun TimeInputScreen(
         ) {
             Text("Confirm")
         }
-
         Spacer(modifier = Modifier.height(12.dp))
-
         TextButton(onClick = onBack) {
             Text("Back")
         }
     }
 }
 
+// a popup screen for when the timer runs out
 @Composable
 fun TimeUpScreen(
     onBack: () -> Unit
@@ -306,13 +306,16 @@ fun TimeUpScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Time's Up!",
+            text = """
+                Time's Up!
+                Not much to see here.
+                Other features coming soon....
+            """.trimIndent(),
             )
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = onBack,
             modifier = Modifier
-                .fillMaxWidth()
                 .height(50.dp)
         ) {
             Text("Back")
@@ -320,23 +323,30 @@ fun TimeUpScreen(
     }
 }
 
+/*  a screen that draws a grid for the pixel are and initiates the
+    persistent connection to the server's websocket
+ */
 @Composable
 fun PixelArtScreen(
     websocketURL: String = BuildConfig.API_WEB_SOCKET,
     onBack: () -> Unit) {
+
+    //create a mutable grid that can be updated
     val gridState = remember {
         mutableStateMapOf<Pair<Int, Int>, Color>().apply {
             for (x in 0 until 16) {
                 for (y in 0 until 16) {
-                    put(x to y, Color(0xFFD3D3D3)) // Initial blank/dark tile
+                    put(x to y, Color(0xFFD3D3D3))
                 }
             }
         }
     }
 
-
-    // Connect to your WebSocket relay service when screen enters composition
+    /*  use a disposable effect to connect to the server so that the connection
+        can also be cleaned
+     */
     DisposableEffect(websocketURL) {
+        //connect to websocket and define a callback to update grid state
         val client = PixelWebSocketClient(websocketURL) { update ->
             try {
                 // parse color string
@@ -351,7 +361,7 @@ fun PixelArtScreen(
         client.connect()
 
         onDispose {
-            client.disconnect() // Clean up connection on back press/screen leave
+            client.disconnect()
         }
     }
     Column(
@@ -374,6 +384,7 @@ fun PixelArtScreen(
                 .fillMaxWidth()
                 .background(Color(0xFFF8F9FA))
         ) {
+            //canvas for a modifiable screen that uses grid state and can be seen on display
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cellSizeX = size.width / 16f
                 val cellSizeY = size.height / 16f
@@ -386,9 +397,10 @@ fun PixelArtScreen(
                         size = Size(cellSizeX, cellSizeY)
                     )
                 }
+                //simple border for visual clarity
                 drawRect(
-                    color = Color(0xFFD3D3D3), // Change to your preferred border color
-                    style = Stroke(width = 2.dp.toPx()) // Thickness of outer border
+                    color = Color(0xFFD3D3D3),
+                    style = Stroke(width = 2.dp.toPx())
                 )
             }
         }
@@ -401,6 +413,10 @@ fun PixelArtScreen(
 
 }
 
+/*
+    A helper class that deals with connecting to a websocket at 'url'
+    and sending the PixelUpdate data it receives to the callback
+ */
 class PixelWebSocketClient(
     private val url: String,
     private val onPixelReceived: (PixelUpdate) -> Unit

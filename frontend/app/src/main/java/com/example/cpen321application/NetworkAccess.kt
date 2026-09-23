@@ -1,27 +1,21 @@
 package com.example.cpen321application
-import kotlinx.serialization.SerialName
+
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.Response
 import retrofit2.http.Body
-//import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-//import kotlinx.serialization.json.Json
-import okhttp3.MediaType
-import kotlinx.serialization.Serializable
-//import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.POST
 
+/*  retrofit for server connection and auto parsing to objects
+    using gson
+ */
 private val retrofit = Retrofit.Builder()
     .addConverterFactory(GsonConverterFactory.create())
     .baseUrl(BuildConfig.API_BASE_URL)
     .build()
 
-//add datatypes for sending and receiving information
-//@Serializable
-data class StatusResponse(
-    val status: String
-)
+//add datatypes for sending and receiving information (used by gson for parsing)
 data class User(
     val firstName: String,
     val lastName: String
@@ -42,9 +36,6 @@ data class ServerInfo(
 )
 
 interface NetworkConnection {
-    @GET("health")
-    suspend fun getStatus() : StatusResponse
-
     @GET("getIP4")
     suspend fun getServerIp4() : Response<ServerInfo>
 
@@ -58,7 +49,8 @@ interface NetworkConnection {
     suspend fun authAndInfo(@Body request: AuthRequest) : Response<AuthResponse>
 }
 
-object serverApi {
+// main object instance with retrofit service used to connect to server
+object ServerApi {
     val retrofitService : NetworkConnection by lazy {
         retrofit.create(NetworkConnection::class.java)
     }

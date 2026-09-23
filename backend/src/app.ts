@@ -1,7 +1,5 @@
 import express, { type Express } from 'express';
 import { OAuth2Client } from 'google-auth-library';
-import os from 'os';
-//const WebSocket = require('ws');
 import WebSocket from 'ws'
 
 export function createApp(): Express {
@@ -64,6 +62,7 @@ export function createApp(): Express {
       const lastName = payload.family_name || '';
       console.log(`Successfully authenticated user`);
 
+      //send user info back, add more to this when adding session ids
       return res.status(200).json({
         message: 'Authentication successful',
         user: {
@@ -77,12 +76,13 @@ export function createApp(): Express {
     }
   });
 
+  //simple api to test connection health
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
+  //get the server's public api
   app.get('/getIP4', async (_req, res) => {
-    //const networkInterfaces = os.networkInterfaces();
     let address = '127.0.0.1'
     try{
       console.log("Trying fetch")
@@ -101,6 +101,7 @@ export function createApp(): Express {
     }
   });
 
+  //server time in 24-hour format: hh:mm:ss GMT+/-hh:mm
   app.get('/getTime', async (_req, res) => {
     const now = new Date();
 
@@ -121,6 +122,7 @@ export function createApp(): Express {
     res.status(200).json({msg:`${timeStr} ${gmtOffsetStr}`})
   })
 
+  //returns the name of the application creator
   app.get('/getAuthorName', async(_req, res) => {
     res.status(200).json({
           firstName: "Pawanpreet",
@@ -128,6 +130,7 @@ export function createApp(): Express {
       });
   });
 
+  //standard api to route not existent endpoints
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
   });
