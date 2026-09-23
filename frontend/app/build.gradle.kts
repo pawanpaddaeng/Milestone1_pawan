@@ -36,7 +36,7 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"${localProperty("API_BASE_URL", "http://10.0.2.2:3000")}\""
+            "\"${localProperty("API_BASE_URL", "http://3.128.218.189:3000")}\""
         )
         buildConfigField(
             "String",
@@ -48,7 +48,7 @@ android {
             "String",
             "API_WEB_SOCKET",
             "\"${localProperty("API_WEB_SOCKET",
-                "ws://10.0.2.2:8080")}\""
+                "ws://3.128.218.189:8080")}\""
         )
     }
 
@@ -94,20 +94,18 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    //google authorization dependencies
     implementation("androidx.credentials:credentials:1.7.0-alpha03")
     implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
     implementation("com.google.android.libraries.identity.googleid:googleid:<latest version>")
-    // Retrofit & Kotlinx Serialization Converter
-//    // Retrofit
-//    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-//    // Kotlin serialization
-//    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
-//    // Retrofit with Kotlin serialization Converter
-//    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
-//    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+
+    //retrofit and its converters dependencies
     implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+
+    //navigation dependency and okhttp for websocket
     implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
