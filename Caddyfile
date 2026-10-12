@@ -1,0 +1,15 @@
+# Terminates TLS in front of the backend. Caddy fetches and renews a Let's
+# Encrypt certificate for DOMAIN automatically (ports 80 and 443 must be open).
+# sslip.io resolves 3-128-218-189.sslip.io to 3.128.218.189, so no DNS setup is
+# needed; override DOMAIN if the instance's public IP changes.
+{$DOMAIN:3-128-218-189.sslip.io} {
+	# wss://DOMAIN/ws -> WebSocket server
+	handle_path /ws* {
+		reverse_proxy backend:8080
+	}
+
+	# https://DOMAIN/... -> REST API
+	handle {
+		reverse_proxy backend:3000
+	}
+}

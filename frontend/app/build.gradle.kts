@@ -32,24 +32,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Baked in at build time from local.properties — never hard-code URLs or
-        // OAuth IDs in source. Emulator reaches the host via 10.0.2.2, not localhost.
-        buildConfigField(
-            "String",
-            "API_BASE_URL",
-            "\"${localProperty("API_BASE_URL", "http://3.128.218.189:3000")}\""
-        )
-        buildConfigField(
-            "String",
-            "GOOGLE_CLIENT_ID",
-            "\"${localProperty("GOOGLE_CLIENT_ID", 
-                "618096872603-9sa040q2l3rnurpksgsqhbgag57fbmft.apps.googleusercontent.com")}\""
-        )
-        buildConfigField(
-            "String",
-            "API_WEB_SOCKET",
-            "\"${localProperty("API_WEB_SOCKET",
-                "ws://3.128.218.189:8080")}\""
-        )
+        // OAuth IDs in source. Defaults point at the Caddy HTTPS/WSS proxy on EC2;
+        // override in local.properties (e.g. http://10.0.2.2:3000) for local testing.
+        buildConfigField("String", "API_BASE_URL",
+            "\"${localProperty("API_BASE_URL")}\"")
+        buildConfigField("String", "GOOGLE_CLIENT_ID",
+            "\"${localProperty("GOOGLE_CLIENT_ID")}\"")
+        buildConfigField("String", "API_WEB_SOCKET",
+            "\"${localProperty("API_WEB_SOCKET")}\"")
     }
 
     buildTypes {
@@ -98,7 +88,7 @@ dependencies {
     //google authorization dependencies
     implementation("androidx.credentials:credentials:1.7.0-alpha03")
     implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
-    implementation("com.google.android.libraries.identity.googleid:googleid:<latest version>")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     //retrofit and its converters dependencies
     implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
