@@ -19,6 +19,8 @@ import androidx.credentials.CredentialManager
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import androidx.credentials.CustomCredential
 import androidx.navigation.compose.rememberNavController
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -161,14 +163,30 @@ suspend fun triggerGoogleSignIn(context: Context): String? {
         .addCredentialOption(googleIdOption)
         .build()
 
+    /*  fallback "Sign in with Google" flow: unlike the bottom sheet above, it
+        still opens when no account is on the device and lets the user add one
+     */
+    val signInWithGoogleRequest = GetCredentialRequest.Builder()
+        .addCredentialOption(
+            GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_CLIENT_ID).build()
+        )
+        .build()
+
     //mutable context to avoid memory leak as suggested by google
     val mutableContext = MutableContextWrapper(activityContext)
 
     return try {
-            val result = credentialManager.getCredential(
-                request = request,
-                context = mutableContext
-            )
+            val result = try {
+                credentialManager.getCredential(
+                    request = request,
+                    context = mutableContext
+                )
+            } catch (e: NoCredentialException) {
+                credentialManager.getCredential(
+                    request = signInWithGoogleRequest,
+                    context = mutableContext
+                )
+            }
             val credential = result.credential
             if (credential is CustomCredential &&
                 credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
