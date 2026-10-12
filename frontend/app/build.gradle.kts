@@ -34,23 +34,12 @@ android {
         // Baked in at build time from local.properties — never hard-code URLs or
         // OAuth IDs in source. Defaults point at the Caddy HTTPS/WSS proxy on EC2;
         // override in local.properties (e.g. http://10.0.2.2:3000) for local testing.
-        buildConfigField(
-            "String",
-            "API_BASE_URL",
-            "\"${localProperty("API_BASE_URL", "https://3-128-218-189.sslip.io/")}\""
-        )
-        buildConfigField(
-            "String",
-            "GOOGLE_CLIENT_ID",
-            "\"${localProperty("GOOGLE_CLIENT_ID", 
-                "618096872603-9sa040q2l3rnurpksgsqhbgag57fbmft.apps.googleusercontent.com")}\""
-        )
-        buildConfigField(
-            "String",
-            "API_WEB_SOCKET",
-            "\"${localProperty("API_WEB_SOCKET",
-                "wss://3-128-218-189.sslip.io/ws")}\""
-        )
+        buildConfigField("String", "API_BASE_URL",
+            "\"${localProperty("API_BASE_URL")}\"")
+        buildConfigField("String", "GOOGLE_CLIENT_ID",
+            "\"${localProperty("GOOGLE_CLIENT_ID")}\"")
+        buildConfigField("String", "API_WEB_SOCKET",
+            "\"${localProperty("API_WEB_SOCKET")}\"")
     }
 
     buildTypes {
