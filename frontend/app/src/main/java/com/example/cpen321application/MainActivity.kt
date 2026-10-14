@@ -15,6 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.example.cpen321application.ui.screens.DetailScreen
+import com.example.cpen321application.ui.screens.PixelArtScreen
+import com.example.cpen321application.ui.screens.SignInScreen
+import com.example.cpen321application.ui.screens.TimeInputScreen
+import com.example.cpen321application.ui.screens.TimeUpScreen
 import androidx.credentials.CredentialManager
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import androidx.credentials.GetCredentialRequest
