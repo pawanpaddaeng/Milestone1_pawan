@@ -13,7 +13,8 @@ services:
     env_file:
       - path: ./backend/.env
     environment:
-      MONGODB_URI: mongodb://mongo:27017/cpen321
+      # MongoDB disabled to save memory on the 1 GB EC2 instance (backend doesn't use it yet).
+      # MONGODB_URI: mongodb://mongo:27017/cpen321
       # App-level MySQL credentials from the root .env (root password stays with mysql-db).
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
@@ -23,22 +24,25 @@ services:
       - default
       - db
     depends_on:
-      mongo:
-        condition: service_healthy
+      # mongo:
+      #   condition: service_healthy
       mysql-db:
         condition: service_healthy
 
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+  # MongoDB disabled to save memory on the 1 GB EC2 instance. To re-enable,
+  # uncomment this service, the MONGODB_URI/depends_on lines in backend, and
+  # the mongo-data volume below.
+  # mongo:
+  #   image: mongo:7
+  #   restart: unless-stopped
+  #   volumes:
+  #     - mongo-data:/data/db
+  #   healthcheck:
+  #     test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 20s
 
   caddy:
     image: caddy:2
@@ -96,7 +100,7 @@ networks:
     internal: true
 
 volumes:
-  mongo-data:
+  # mongo-data:
   caddy-data:
   caddy-config:
   mysql_data:
