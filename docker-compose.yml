@@ -25,6 +25,8 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+      mysql-db:
+        condition: service_healthy
 
   mongo:
     image: mongo:7
@@ -78,6 +80,15 @@ services:
       - mysql_data:/var/lib/mysql
       # Schema scripts, run only when mysql_data is first created.
       - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    # Pings over TCP (127.0.0.1, not the socket) so it only passes once the real
+    # server is up; the temporary server used while running init scripts has
+    # networking disabled.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
 networks:
   default:
