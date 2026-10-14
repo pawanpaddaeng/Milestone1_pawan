@@ -70,6 +70,13 @@ services:
   mysql-db:
     image: mysql:8.4
     container_name: mysql_db
+    # Low-memory settings for the 1 GB EC2 instance (defaults target big servers
+    # and got the container OOM-killed with exit 137).
+    command:
+      - --innodb-buffer-pool-size=32M
+      - --performance-schema=OFF
+      - --max-connections=20
+      - --skip-log-bin
     # Credentials come from the root .env (gitignored); see .env.example.
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
