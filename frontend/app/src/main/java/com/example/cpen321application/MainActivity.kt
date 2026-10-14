@@ -16,8 +16,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.ui.screens.DetailScreen
+import com.example.cpen321application.ui.screens.HomeScreen
+import com.example.cpen321application.ui.screens.sampleJoinedGames
+import com.example.cpen321application.ui.screens.sampleOrganizedGames
 import com.example.cpen321application.ui.screens.PixelArtScreen
 import com.example.cpen321application.ui.screens.SignInScreen
+import com.example.cpen321application.ui.screens.SignUpScreen
 import com.example.cpen321application.ui.screens.TimeInputScreen
 import com.example.cpen321application.ui.screens.TimeUpScreen
 import androidx.credentials.CredentialManager
@@ -91,15 +95,42 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         startDestination = "sign_in"
     ) {
         composable("sign_in") {
-            /*  start at the sign in screen, once signed in go to the
-                detail screen with the signed in user's name
+            /*  start at the sign in screen, once signed in go to the home
+                screen and remove sign in so back doesn't return to it
              */
             SignInScreen(
                 onSignedIn = {
-                    val encodedStatus = Uri.encode("User Signed In: $firstName $lastName")
+                    navController.navigate("home") {
+                        popUpTo("sign_in") { inclusive = true }
+                    }
+                },
+                onNavigateToSignUp = { navController.navigate("sign_up") },
+                modifier = modifier
+            )
+        }
+
+        composable("home") {
+            // TODO: replace the sample games with the user's games from the backend
+            HomeScreen(
+                joinedGames = sampleJoinedGames,
+                organizedGames = sampleOrganizedGames,
+                modifier = modifier
+            )
+        }
+
+        composable("sign_up") {
+            SignUpScreen(
+                onCreateAccount = { details ->
+                    // TODO: send details to the backend once it has a sign up endpoint
+                    firstName = details.firstName
+                    lastName = details.lastName
+                    val encodedStatus = Uri.encode(
+                        "Account created for: ${details.firstName} ${details.lastName}"
+                    )
                     navController.navigate("detail_screen/$encodedStatus")
                 },
-                onNavigateToSignUp = { },
+                onNavigateToSignIn = { navController.popBackStack() },
+                onBack = { navController.popBackStack() },
                 modifier = modifier
             )
         }

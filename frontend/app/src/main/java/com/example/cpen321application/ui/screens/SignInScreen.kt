@@ -95,10 +95,10 @@ fun SignInScreen(
                             lastName = authData?.user?.lastName
                             onSignedIn()
                         } else {
-                            statusText = "Server error code: ${response.code()}"
+                            statusText = "Server Verification failed, try again."
                         }
                     } catch (e: Exception) {
-                        statusText = "Cannot Reach Server: $e"
+                        statusText = "Cannot Reach Server"
                     }
                     isSigningIn = false
                 }
