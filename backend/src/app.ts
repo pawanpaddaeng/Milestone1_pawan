@@ -1,13 +1,14 @@
 import express, { type Express } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import WebSocket from 'ws'
+import { createUser } from './db/users';
 
 export function createApp(): Express {
   const app = express();
   app.use(express.json())
   const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-  const courseWs = new WebSocket('wss://8.229.22.124');
+  //const courseWs = new WebSocket('wss://8.229.22.124');
 
   //start websocket to transfer pixels to client
   const server = new WebSocket.Server({ port: 8080 });
@@ -22,15 +23,15 @@ export function createApp(): Express {
   });
 
   // forward every incoming pixel to all connected clients
-  courseWs.on('message', (data) => {
-    const payload = data.toString();
-    for (let client of clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        console.log("Sending Pixel")
-        client.send(payload);
-      }
-    }
-  });
+  // courseWs.on('message', (data) => {
+  //   const payload = data.toString();
+  //   for (let client of clients) {
+  //     if (client.readyState === WebSocket.OPEN) {
+  //       console.log("Sending Pixel")
+  //       client.send(payload);
+  //     }
+  //   }
+  // });
 
   interface GoogleAuthRequestBody {
     idToken: string;
@@ -61,6 +62,9 @@ export function createApp(): Express {
       const firstName = payload.given_name || '';
       const lastName = payload.family_name || '';
       console.log(`Successfully authenticated user`);
+      createUser(firstName,lastName).then((id) => {
+        console.log(`User created id:`, id);
+      });
 
       //send user info back, add more to this when adding session ids
       return res.status(200).json({

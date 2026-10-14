@@ -14,6 +14,14 @@ services:
       - path: ./backend/.env
     environment:
       MONGODB_URI: mongodb://mongo:27017/cpen321
+      # App-level MySQL credentials from the root .env (root password stays with mysql-db).
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    # default: reaches mongo and is reached by caddy; db: private link to MySQL.
+    networks:
+      - default
+      - db
     depends_on:
       mongo:
         condition: service_healthy
@@ -32,6 +40,10 @@ services:
 
   caddy:
     image: caddy:2
+    # Only started on EC2: `docker compose --profile prod up -d --build`
+    # (or COMPOSE_PROFILES=prod in the root .env). Locally it would fail to get a
+    # certificate, since Let's Encrypt validates against the EC2 IP.
+    #profiles: ["prod"]
     restart: unless-stopped
     ports:
       - "80:80"
@@ -49,7 +61,31 @@ services:
     depends_on:
       - backend
 
+  mysql-db:
+    image: mysql:8.4
+    container_name: mysql_db
+    # Credentials come from the root .env (gitignored); see .env.example.
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE must be set in .env}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER must be set in .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set in .env}
+    # No published ports: only reachable as mysql-db:3306 from services on the
+    # internal db network, which only the backend joins.
+    networks:
+      - db
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Schema scripts, run only when mysql_data is first created.
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+
+networks:
+  default:
+  db:
+    internal: true
+
 volumes:
   mongo-data:
   caddy-data:
   caddy-config:
+  mysql_data:
