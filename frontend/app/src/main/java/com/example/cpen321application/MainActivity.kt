@@ -83,23 +83,18 @@ fun AppNavigation(modifier: Modifier = Modifier) {
      */
     NavHost(
         navController = navController,
-        startDestination = "three_buttons"
+        startDestination = "sign_in"
     ) {
-        composable("three_buttons") {
-            /*  go to the home screen with 3 buttons, only the first button
-                needs information passed to the detail screen for display
+        composable("sign_in") {
+            /*  start at the sign in screen, once signed in go to the
+                detail screen with the signed in user's name
              */
-            ThreeButtonsScreen(
-                onNavigateToDetailsScreen = { status ->
-                    val encodedStatus = Uri.encode(status)
+            SignInScreen(
+                onSignedIn = {
+                    val encodedStatus = Uri.encode("User Signed In: $firstName $lastName")
                     navController.navigate("detail_screen/$encodedStatus")
                 },
-                onNavigateToPixelScreen = {
-                    navController.navigate(("pixel_screen"))
-                },
-                onNavigateToTimeScreen = {
-                    navController.navigate(("TimeInputScreen"))
-                },
+                onNavigateToSignUp = { },
                 modifier = modifier
             )
         }
