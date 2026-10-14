@@ -1,10 +1,10 @@
 package com.example.cpen321application
 
 import android.app.Activity
-import android.os.Bundle
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.MutableContextWrapper
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,26 +12,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import androidx.credentials.CredentialManager
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import androidx.credentials.CustomCredential
-import androidx.navigation.compose.rememberNavController
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
-import androidx.navigation.NavType
-import android.net.Uri
-import kotlinx.coroutines.*
-import kotlin.time.Duration.Companion.milliseconds
+import androidx.navigation.compose.rememberNavController
+import com.example.cpen321application.ui.screens.HomeScreen
+import com.example.cpen321application.ui.screens.SignInScreen
+import com.example.cpen321application.ui.screens.SignUpScreen
+import com.example.cpen321application.ui.screens.sampleJoinedGames
+import com.example.cpen321application.ui.screens.sampleOrganizedGames
+import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
 /*
     The main activity class that connects our navigation and
@@ -45,10 +43,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             CPEN321ApplicationTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    AppNavigation(modifier = Modifier.padding((innerPadding)))
+                    AppNavigation(modifier = Modifier.padding(innerPadding))
                 }
             }
-
         }
     }
 }
@@ -59,80 +56,54 @@ var lastName: String? = "Logged In"
 
 /*
     App navigation composable:
-    Deals with the screens defined in Screens.kt and handles
+    Deals with the screens in ui/screens and handles
     their interactions with each other, such as switching
  */
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
-    val coroutineScope = rememberCoroutineScope()
 
-    //timer to move navigation to another screen, runs in parallel until timeout
-    fun startGlobalTimer(totalSeconds: Int) {
-        coroutineScope.launch {
-            delay((totalSeconds * 1000L).milliseconds)
-
-            // navigate to TimeUpScreen regardless of current active screen
-            navController.navigate("TimeUpScreen")
+    // go to the home screen and remove sign in/up so back doesn't return to them
+    fun navigateToHome() {
+        navController.navigate("home") {
+            popUpTo("sign_in") { inclusive = true }
         }
     }
 
-    /*
-        Heart of the controller, defines the interactions and passes arguments
-        around
-     */
     NavHost(
         navController = navController,
-        startDestination = "three_buttons"
+        startDestination = "sign_in"
     ) {
-        composable("three_buttons") {
-            /*  go to the home screen with 3 buttons, only the first button
-                needs information passed to the detail screen for display
-             */
-            ThreeButtonsScreen(
-                onNavigateToDetailsScreen = { status ->
-                    val encodedStatus = Uri.encode(status)
-                    navController.navigate("detail_screen/$encodedStatus")
-                },
-                onNavigateToPixelScreen = {
-                    navController.navigate(("pixel_screen"))
-                },
-                onNavigateToTimeScreen = {
-                    navController.navigate(("TimeInputScreen"))
-                },
+        composable("sign_in") {
+            SignInScreen(
+                onSignedIn = { navigateToHome() },
+                onNavigateToSignUp = { navController.navigate("sign_up") },
                 modifier = modifier
             )
         }
 
-        composable(
-            route = "detail_screen/{statusData}",
-            arguments = listOf(
-                navArgument("statusData") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            // Extract the string argument from the backStackEntry
-            val statusData = backStackEntry.arguments?.getString("statusData") ?: "No Data"
-
-            DetailScreen(
-                statusData = statusData,
-                onBack = {
-                    navController.popBackStack() }
+        composable("sign_up") {
+            SignUpScreen(
+                onCreateAccount = { details ->
+                    // TODO: send details to the backend once it has a sign up endpoint
+                    firstName = details.firstName
+                    lastName = details.lastName
+                    navigateToHome()
+                },
+                onNavigateToSignIn = { navController.popBackStack() },
+                onBack = { navController.popBackStack() },
+                modifier = modifier
             )
         }
 
-        composable ("pixel_screen") {
-            PixelArtScreen(onBack = { navController.popBackStack() } )
+        composable("home") {
+            // TODO: replace the sample games with the user's games from the backend
+            HomeScreen(
+                joinedGames = sampleJoinedGames,
+                organizedGames = sampleOrganizedGames,
+                modifier = modifier
+            )
         }
-
-        composable ("TimeInputScreen"){
-            TimeInputScreen(onTimeSubmitted = { time ->
-                startGlobalTimer(time)
-                navController.popBackStack() },
-                onBack = { navController.popBackStack() })
-        }
-
-        composable("TimeUpScreen") {
-            TimeUpScreen(onBack = { navController.popBackStack() })}
     }
 }
 
