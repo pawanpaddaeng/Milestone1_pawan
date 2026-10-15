@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import WebSocket from 'ws'
 import { createAuthToken } from './auth/jwt';
-import { createUser, isDuplicateEntryError, userExists } from './db/users';
+import { createUser, findUserByGoogleId, isDuplicateEntryError, userExists } from './db/users';
 
 // youngest and oldest ages allowed to sign up, matches the app's birth year picker
 const MIN_AGE = 19;
@@ -167,6 +167,50 @@ export function createApp(): Express {
       }
       console.error('Sign up failed:', error);
       return res.status(500).json({ msg: 'server_error', error: 'Could not create account, try again later' });
+    }
+  });
+
+  interface LoginRequestBody {
+    id_token?: unknown;
+  }
+
+  /*  sign in (SignInUser): verifies the Google token and returns a JWT if the
+      user exists. Responds no_user if they need to sign up first, other
+      errors use the same msg codes as sign up with a description in error
+   */
+  app.post('/api/auth/login', async (req: Request<{}, {}, LoginRequestBody>, res: Response) => {
+    const { id_token } = req.body ?? {};
+    console.log("Received a login request");
+
+    if (typeof id_token !== 'string' || id_token === '') {
+      return res.status(400).json({ msg: 'invalid_request', error: 'id_token is required' });
+    }
+
+    let googleId: string;
+    try {
+      const audience = process.env.GOOGLE_CLIENT_ID ?? '';
+      const ticket = await googleClient.verifyIdToken({ idToken: id_token, audience });
+      const payload = ticket.getPayload();
+      if (!payload?.sub) {
+        return res.status(401).json({ msg: 'invalid_token', error: 'Invalid Google ID token' });
+      }
+      googleId = payload.sub;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return res.status(401).json({ msg: 'invalid_token', error: 'Invalid Google ID token' });
+    }
+
+    try {
+      const user = await findUserByGoogleId(googleId);
+      if (!user) {
+        return res.status(404).json({ msg: 'no_user' });
+      }
+
+      console.log(`User signed in id:`, user.userId);
+      return res.status(200).json({ msg: 'signedIn', jwt_token: createAuthToken(user.userId) });
+    } catch (error) {
+      console.error('Login failed:', error);
+      return res.status(500).json({ msg: 'server_error', error: 'Could not sign in, try again later' });
     }
   });
 

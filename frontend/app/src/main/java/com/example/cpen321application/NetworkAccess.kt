@@ -41,11 +41,17 @@ data class SignUpRequest(
     val birthYear: Int
 )
 
-/*  response from api/auth/signup:
-    msg is "signedIn" with a jwtToken on success, "already_exists" if the
-    account exists, otherwise an error code with an error description
+// body for POST api/auth/login
+data class LoginRequest(
+    @SerializedName("id_token") val idToken: String
+)
+
+/*  response from api/auth/signup and api/auth/login:
+    msg is "signedIn" with a jwtToken on success, "already_exists" (sign up) or
+    "no_user" (login) for account problems, otherwise an error code
+    (invalid_request, invalid_token, server_error) with an error description
  */
-data class SignUpResponse(
+data class AuthTokenResponse(
     val msg: String?,
     @SerializedName("jwt_token") val jwtToken: String?,
     val error: String?
@@ -69,7 +75,10 @@ interface NetworkConnection {
     suspend fun authAndInfo(@Body request: AuthRequest) : Response<AuthResponse>
 
     @POST("api/auth/signup")
-    suspend fun signUp(@Body request: SignUpRequest) : Response<SignUpResponse>
+    suspend fun signUp(@Body request: SignUpRequest) : Response<AuthTokenResponse>
+
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest) : Response<AuthTokenResponse>
 }
 
 // main object instance with retrofit service used to connect to server

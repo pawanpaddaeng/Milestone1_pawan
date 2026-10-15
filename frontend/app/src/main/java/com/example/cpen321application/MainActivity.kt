@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
 var firstName: String? = "Not"
 var lastName: String? = "Logged In"
 
-// JWT from the server after sign up, sent with future requests
+// JWT from the server after sign up / sign in, sent with future requests
 // TODO: store securely so the user stays signed in after the app closes
 var jwtToken: String? = null
 
@@ -90,7 +90,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 .collectAsState()
 
             SignInScreen(
-                onSignedIn = { navigateToHome() },
+                onSignedIn = { token ->
+                    jwtToken = token
+                    navigateToHome()
+                },
                 onNavigateToSignUp = {
                     backStackEntry.savedStateHandle[SIGN_IN_MESSAGE_KEY] = null
                     navController.navigate("sign_up")

@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cpen321application.ServerApi
 import com.example.cpen321application.SignUpRequest
-import com.example.cpen321application.SignUpResponse
+import com.example.cpen321application.AuthTokenResponse
 import com.example.cpen321application.triggerGoogleSignIn
 import com.google.gson.Gson
 import com.example.cpen321application.ui.theme.*
@@ -474,7 +474,7 @@ private suspend fun submitSignUp(details: SignUpDetails): SignUpResult {
         )
         // error responses (4xx/5xx) carry the same json shape in the error body
         val body = response.body() ?: try {
-            Gson().fromJson(response.errorBody()?.string(), SignUpResponse::class.java)
+            Gson().fromJson(response.errorBody()?.string(), AuthTokenResponse::class.java)
         } catch (e: Exception) {
             null
         }
