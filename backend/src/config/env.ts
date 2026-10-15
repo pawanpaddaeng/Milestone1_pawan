@@ -32,10 +32,14 @@ const mysqlUrl =
   `mysql://${encodeURIComponent(mysqlUser)}:${encodeURIComponent(mysqlPassword)}` +
   `@${mysqlHost}:${mysqlPort}/${encodeURIComponent(mysqlDatabase)}`;
 
+// Secret used to sign the JWTs given to the app after sign up / sign in.
+const jwtSecret = requiredEnv('JWT_SECRET');
+
 export const env = {
   port,
   mysqlUrl,
   mysqlUser,
   mysqlPassword,
   mysqlDatabase,
+  jwtSecret,
 } as const;
