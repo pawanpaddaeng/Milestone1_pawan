@@ -30,7 +30,8 @@ import com.example.cpen321application.triggerGoogleSignIn
 fun SignInScreen(
     onSignedIn: () -> Unit,
     onNavigateToSignUp: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    infoMessage: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -140,6 +141,14 @@ fun SignInScreen(
                     text = statusText!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
+            } else if (infoMessage != null) {
+                // e.g. sent back from sign up because the account already exists
+                Text(
+                    text = infoMessage,
+                    color = Color.Black,
+                    style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
             }
