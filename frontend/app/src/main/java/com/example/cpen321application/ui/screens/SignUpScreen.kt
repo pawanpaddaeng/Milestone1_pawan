@@ -121,11 +121,6 @@ fun SignUpScreen(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold
             )
-            Text(
-                text = "Tell us a bit about yourself to get started.",
-                color = SportsOnSurfaceVariant,
-                fontSize = 14.sp
-            )
         }
 
         GoogleVerificationCard(
@@ -138,8 +133,7 @@ fun SignUpScreen(
                 scope.launch {
                     val token = triggerGoogleSignIn(context)
                     if (token == null) {
-                        errorText = "Google verification failed. Make sure a Google " +
-                                "account is added to this device"
+                        errorText = "Google verification failed. Try again."
                     } else {
                         // prefill the form with the name on the Google account
                         val profile = readGoogleProfile(token)
@@ -169,14 +163,6 @@ fun SignUpScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-            if (idToken != null) {
-                Text(
-                    text = "Prefilled from your Google account — edit if needed.",
-                    color = SportsOnSurfaceVariant,
-                    fontSize = 12.sp
-                )
-            }
-
             BirthYearField(
                 birthYear = birthYear,
                 onYearSelected = { birthYear = it }
@@ -233,12 +219,6 @@ fun SignUpScreen(
                     Text(text = "Create Account", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 }
             }
-            Text(
-                text = "By creating an account you agree to the community guidelines.",
-                color = SportsOnSurfaceVariant,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center
-            )
             Row {
                 Text(
                     text = "Already have an account? ",
