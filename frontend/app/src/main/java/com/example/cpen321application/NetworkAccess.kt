@@ -6,6 +6,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.POST
+import com.google.gson.annotations.SerializedName
 
 /*  retrofit for server connection and auto parsing to objects
     using gson
@@ -31,6 +32,31 @@ data class AuthRequest(
     val idToken : String?
 )
 
+// body for POST api/auth/signup, field names match the backend spec
+data class SignUpRequest(
+    @SerializedName("id_token") val idToken: String,
+    val email: String,
+    @SerializedName("f_name") val firstName: String,
+    @SerializedName("l_name") val lastName: String,
+    val birthYear: Int
+)
+
+// body for POST api/auth/login
+data class LoginRequest(
+    @SerializedName("id_token") val idToken: String
+)
+
+/*  response from api/auth/signup and api/auth/login:
+    msg is "signedIn" with a jwtToken on success, "already_exists" (sign up) or
+    "no_user" (login) for account problems, otherwise an error code
+    (invalid_request, invalid_token, server_error) with an error description
+ */
+data class AuthTokenResponse(
+    val msg: String?,
+    @SerializedName("jwt_token") val jwtToken: String?,
+    val error: String?
+)
+
 data class ServerInfo(
     val msg : String
 )
@@ -47,6 +73,12 @@ interface NetworkConnection {
 
     @POST("api/auth/google")
     suspend fun authAndInfo(@Body request: AuthRequest) : Response<AuthResponse>
+
+    @POST("api/auth/signup")
+    suspend fun signUp(@Body request: SignUpRequest) : Response<AuthTokenResponse>
+
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest) : Response<AuthTokenResponse>
 }
 
 // main object instance with retrofit service used to connect to server

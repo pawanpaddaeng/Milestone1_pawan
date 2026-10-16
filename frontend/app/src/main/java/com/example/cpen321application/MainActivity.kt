@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -54,6 +56,13 @@ class MainActivity : ComponentActivity() {
 var firstName: String? = "Not"
 var lastName: String? = "Logged In"
 
+// JWT from the server after sign up / sign in, sent with future requests
+// TODO: store securely so the user stays signed in after the app closes
+var jwtToken: String? = null
+
+// savedStateHandle key for a message shown on the sign in screen
+private const val SIGN_IN_MESSAGE_KEY = "sign_in_message"
+
 /*
     App navigation composable:
     Deals with the screens in ui/screens and handles
@@ -74,21 +83,41 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         navController = navController,
         startDestination = "sign_in"
     ) {
-        composable("sign_in") {
+        composable("sign_in") { backStackEntry ->
+            // message left by another screen, e.g. sign up when the account already exists
+            val infoMessage by backStackEntry.savedStateHandle
+                .getStateFlow<String?>(SIGN_IN_MESSAGE_KEY, null)
+                .collectAsState()
+
             SignInScreen(
-                onSignedIn = { navigateToHome() },
-                onNavigateToSignUp = { navController.navigate("sign_up") },
-                modifier = modifier
+                onSignedIn = { token ->
+                    jwtToken = token
+                    navigateToHome()
+                },
+                onNavigateToSignUp = {
+                    backStackEntry.savedStateHandle[SIGN_IN_MESSAGE_KEY] = null
+                    navController.navigate("sign_up")
+                },
+                modifier = modifier,
+                infoMessage = infoMessage
             )
         }
 
         composable("sign_up") {
             SignUpScreen(
-                onCreateAccount = { details ->
-                    // TODO: send details to the backend once it has a sign up endpoint
+                onSignedUp = { details, token ->
                     firstName = details.firstName
                     lastName = details.lastName
+                    jwtToken = token
                     navigateToHome()
+                },
+                onAlreadyExists = {
+                    // go back to sign in and tell the user to sign in instead
+                    navController.previousBackStackEntry?.savedStateHandle?.set(
+                        SIGN_IN_MESSAGE_KEY,
+                        "An account already exists for this Google account. Please sign in."
+                    )
+                    navController.popBackStack()
                 },
                 onNavigateToSignIn = { navController.popBackStack() },
                 onBack = { navController.popBackStack() },

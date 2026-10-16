@@ -26,7 +26,11 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cpen321application.ServerApi
+import com.example.cpen321application.SignUpRequest
+import com.example.cpen321application.AuthTokenResponse
 import com.example.cpen321application.triggerGoogleSignIn
+import com.google.gson.Gson
 import com.example.cpen321application.ui.theme.*
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -50,11 +54,14 @@ data class SignUpDetails(
 /*
     Sign up screen for SportsNow:
     The user verifies with Google (which prefills their name), fills in
-    their details and presses Create Account, which calls onCreateAccount
+    their details and presses Create Account, which sends them to the server.
+    onSignedUp gets the details and the server's JWT when the account is created,
+    onAlreadyExists is called when the Google account already has an account
  */
 @Composable
 fun SignUpScreen(
-    onCreateAccount: (SignUpDetails) -> Unit,
+    onSignedUp: (details: SignUpDetails, jwtToken: String) -> Unit,
+    onAlreadyExists: () -> Unit,
     onNavigateToSignIn: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -68,10 +75,11 @@ fun SignUpScreen(
     var lastNameText by remember { mutableStateOf("") }
     var birthYear by remember { mutableStateOf<Int?>(null) }
     var isVerifying by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     val canCreate = idToken != null && firstNameText.isNotBlank() &&
-            lastNameText.isNotBlank() && birthYear != null
+            lastNameText.isNotBlank() && birthYear != null && !isSubmitting
 
     Column(
         modifier = modifier
@@ -113,11 +121,6 @@ fun SignUpScreen(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold
             )
-            Text(
-                text = "Tell us a bit about yourself to get started.",
-                color = SportsOnSurfaceVariant,
-                fontSize = 14.sp
-            )
         }
 
         GoogleVerificationCard(
@@ -130,8 +133,7 @@ fun SignUpScreen(
                 scope.launch {
                     val token = triggerGoogleSignIn(context)
                     if (token == null) {
-                        errorText = "Google verification failed. Make sure a Google " +
-                                "account is added to this device"
+                        errorText = "Google verification failed. Try again."
                     } else {
                         // prefill the form with the name on the Google account
                         val profile = readGoogleProfile(token)
@@ -161,14 +163,6 @@ fun SignUpScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-            if (idToken != null) {
-                Text(
-                    text = "Prefilled from your Google account — edit if needed.",
-                    color = SportsOnSurfaceVariant,
-                    fontSize = 12.sp
-                )
-            }
-
             BirthYearField(
                 birthYear = birthYear,
                 onYearSelected = { birthYear = it }
@@ -190,15 +184,23 @@ fun SignUpScreen(
         ) {
             Button(
                 onClick = {
-                    onCreateAccount(
-                        SignUpDetails(
-                            idToken = idToken!!,
-                            email = email,
-                            firstName = firstNameText.trim(),
-                            lastName = lastNameText.trim(),
-                            birthYear = birthYear!!
-                        )
+                    val details = SignUpDetails(
+                        idToken = idToken!!,
+                        email = email,
+                        firstName = firstNameText.trim(),
+                        lastName = lastNameText.trim(),
+                        birthYear = birthYear!!
                     )
+                    isSubmitting = true
+                    errorText = null
+                    scope.launch {
+                        when (val result = submitSignUp(details)) {
+                            is SignUpResult.Created -> onSignedUp(details, result.jwtToken)
+                            SignUpResult.AlreadyExists -> onAlreadyExists()
+                            is SignUpResult.Failed -> errorText = result.message
+                        }
+                        isSubmitting = false
+                    }
                 },
                 enabled = canCreate,
                 shape = RoundedCornerShape(50),
@@ -207,14 +209,16 @@ fun SignUpScreen(
                     .fillMaxWidth()
                     .height(48.dp)
             ) {
-                Text(text = "Create Account", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text(text = "Create Account", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
             }
-            Text(
-                text = "By creating an account you agree to the community guidelines.",
-                color = SportsOnSurfaceVariant,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center
-            )
             Row {
                 Text(
                     text = "Already have an account? ",
@@ -420,5 +424,49 @@ private fun readGoogleProfile(idToken: String): GoogleProfile {
         )
     } catch (e: Exception) {
         GoogleProfile(null, null, null)
+    }
+}
+
+// outcome of sending the sign up form to the server
+private sealed interface SignUpResult {
+    data class Created(val jwtToken: String) : SignUpResult
+    data object AlreadyExists : SignUpResult
+    data class Failed(val message: String) : SignUpResult
+}
+
+/*  sends the sign up details to POST api/auth/signup.
+    The server answers msg "signedIn" with a jwt_token when the account is created
+    and msg "already_exists" (status 409) when the Google account already has one
+ */
+private suspend fun submitSignUp(details: SignUpDetails): SignUpResult {
+    val email = details.email
+        ?: return SignUpResult.Failed("Could not read the email of your Google account, verify again")
+
+    return try {
+        val response = ServerApi.retrofitService.signUp(
+            SignUpRequest(
+                idToken = details.idToken,
+                email = email,
+                firstName = details.firstName,
+                lastName = details.lastName,
+                birthYear = details.birthYear
+            )
+        )
+        // error responses (4xx/5xx) carry the same json shape in the error body
+        val body = response.body() ?: try {
+            Gson().fromJson(response.errorBody()?.string(), AuthTokenResponse::class.java)
+        } catch (e: Exception) {
+            null
+        }
+
+        when {
+            body?.msg == "signedIn" && body.jwtToken != null -> SignUpResult.Created(body.jwtToken)
+            body?.msg == "already_exists" || response.code() == 409 -> SignUpResult.AlreadyExists
+            body?.msg == "invalid_token" ->
+                SignUpResult.Failed("Your Google verification expired, verify with Google again")
+            else -> SignUpResult.Failed(body?.error ?: "Could not create account, try again")
+        }
+    } catch (e: Exception) {
+        SignUpResult.Failed("Cannot Reach Server")
     }
 }

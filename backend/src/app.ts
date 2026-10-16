@@ -1,7 +1,13 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Request, type Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import WebSocket from 'ws'
-import { createUser } from './db/users';
+import { createAuthToken } from './auth/jwt';
+import { createUser, findUserByGoogleId, isDuplicateEntryError, userExists } from './db/users';
+
+// youngest and oldest ages allowed to sign up, matches the app's birth year picker
+const MIN_AGE = 19;
+const MAX_AGE = 100;
+const MAX_NAME_LENGTH = 100;
 
 export function createApp(): Express {
   const app = express();
@@ -62,9 +68,6 @@ export function createApp(): Express {
       const firstName = payload.given_name || '';
       const lastName = payload.family_name || '';
       console.log(`Successfully authenticated user`);
-      createUser(firstName,lastName).then((id) => {
-        console.log(`User created id:`, id);
-      });
 
       //send user info back, add more to this when adding session ids
       return res.status(200).json({
@@ -77,6 +80,137 @@ export function createApp(): Express {
     } catch (error) {
       console.error('Token verification failed:', error);
       return res.status(401).json({ error: 'Invalid Google ID token' });
+    }
+  });
+
+  interface SignUpRequestBody {
+    id_token?: unknown;
+    email?: unknown;
+    f_name?: unknown;
+    l_name?: unknown;
+    birthYear?: unknown;
+  }
+
+  /*  sign up: verifies the Google token, adds the user to the database and
+      returns a JWT for future requests. Responds already_exists if the
+      Google account already has a user, they should sign in instead
+   */
+  app.post('/api/auth/signup', async (req: Request<{}, {}, SignUpRequestBody>, res: Response) => {
+    const { id_token, email, f_name, l_name, birthYear } = req.body ?? {};
+    console.log("Received a sign up request");
+
+    // check the request fields before contacting Google
+    const firstName = typeof f_name === 'string' ? f_name.trim() : '';
+    const lastName = typeof l_name === 'string' ? l_name.trim() : '';
+    const year = typeof birthYear === 'number' || typeof birthYear === 'string'
+      ? Number(birthYear) : NaN;
+    const currentYear = new Date().getFullYear();
+
+    if (typeof id_token !== 'string' || id_token === '' || typeof email !== 'string' || email === '') {
+      return res.status(400).json({ msg: 'invalid_request', error: 'id_token and email are required' });
+    }
+    if (!firstName || !lastName || firstName.length > MAX_NAME_LENGTH || lastName.length > MAX_NAME_LENGTH) {
+      return res.status(400).json({
+        msg: 'invalid_request',
+        error: `f_name and l_name are required (max ${MAX_NAME_LENGTH} characters)`,
+      });
+    }
+    if (!Number.isInteger(year) || year > currentYear - MIN_AGE || year < currentYear - MAX_AGE) {
+      return res.status(400).json({
+        msg: 'invalid_request',
+        error: `birthYear must be between ${currentYear - MAX_AGE} and ${currentYear - MIN_AGE}`,
+      });
+    }
+
+    let googleId: string;
+    let verifiedEmail: string;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: id_token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      if (!payload?.sub || !payload.email || payload.email_verified === false) {
+        return res.status(401).json({ msg: 'invalid_token', error: 'Google account has no verified email' });
+      }
+      googleId = payload.sub;
+      verifiedEmail = payload.email;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return res.status(401).json({ msg: 'invalid_token', error: 'Invalid Google ID token' });
+    }
+
+    // the email must belong to the Google account that signed the token
+    if (email.trim().toLowerCase() !== verifiedEmail.toLowerCase()) {
+      return res.status(400).json({ msg: 'invalid_request', error: 'email does not match the Google account' });
+    }
+
+    try {
+      if (await userExists(googleId)) {
+        return res.status(409).json({ msg: 'already_exists' });
+      }
+
+      const userId = await createUser({
+        googleId,
+        email: verifiedEmail,
+        firstName,
+        lastName,
+        birthYear: year,
+      });
+      console.log(`User created id:`, userId);
+
+      return res.status(201).json({ msg: 'signedIn', jwt_token: createAuthToken(userId) });
+    } catch (error) {
+      // two sign ups for the same account at once, the unique google_id rejects the second
+      if (isDuplicateEntryError(error)) {
+        return res.status(409).json({ msg: 'already_exists' });
+      }
+      console.error('Sign up failed:', error);
+      return res.status(500).json({ msg: 'server_error', error: 'Could not create account, try again later' });
+    }
+  });
+
+  interface LoginRequestBody {
+    id_token?: unknown;
+  }
+
+  /*  sign in (SignInUser): verifies the Google token and returns a JWT if the
+      user exists. Responds no_user if they need to sign up first, other
+      errors use the same msg codes as sign up with a description in error
+   */
+  app.post('/api/auth/login', async (req: Request<{}, {}, LoginRequestBody>, res: Response) => {
+    const { id_token } = req.body ?? {};
+    console.log("Received a login request");
+
+    if (typeof id_token !== 'string' || id_token === '') {
+      return res.status(400).json({ msg: 'invalid_request', error: 'id_token is required' });
+    }
+
+    let googleId: string;
+    try {
+      const audience = process.env.GOOGLE_CLIENT_ID ?? '';
+      const ticket = await googleClient.verifyIdToken({ idToken: id_token, audience });
+      const payload = ticket.getPayload();
+      if (!payload?.sub) {
+        return res.status(401).json({ msg: 'invalid_token', error: 'Invalid Google ID token' });
+      }
+      googleId = payload.sub;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return res.status(401).json({ msg: 'invalid_token', error: 'Invalid Google ID token' });
+    }
+
+    try {
+      const user = await findUserByGoogleId(googleId);
+      if (!user) {
+        return res.status(404).json({ msg: 'no_user' });
+      }
+
+      console.log(`User signed in id:`, user.userId);
+      return res.status(200).json({ msg: 'signedIn', jwt_token: createAuthToken(user.userId) });
+    } catch (error) {
+      console.error('Login failed:', error);
+      return res.status(500).json({ msg: 'server_error', error: 'Could not sign in, try again later' });
     }
   });
 
