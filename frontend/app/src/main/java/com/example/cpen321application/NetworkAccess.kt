@@ -62,10 +62,32 @@ data class RegisterNotifRequest(
     @SerializedName("fcm_token") val fcmToken: String
 )
 
-// reply from POST api/games: msg "success" with the new game's id, or an error
+/*  a game as the server sends it, the same shape for every endpoint that returns
+    games. Times are UTC ISO 8601 strings, e.g. "2026-10-18T02:00:00Z"
+ */
+data class GameDto(
+    @SerializedName("game_id") val gameId: Int,
+    @SerializedName("organizer_id") val organizerId: Int,
+    val title: String,
+    val sport: String,
+    val description: String?,
+    @SerializedName("starts_at") val startsAt: String,
+    @SerializedName("ends_at") val endsAt: String?,
+    @SerializedName("location_name") val locationName: String,
+    val address: String,
+    val latitude: Double,
+    val longitude: Double,
+    @SerializedName("max_players") val maxPlayers: Int,
+    @SerializedName("player_count") val playerCount: Int,
+    @SerializedName("skill_level") val skillLevel: String,
+    val status: String,
+    @SerializedName("created_at") val createdAt: String
+)
+
+// reply from POST api/games: msg "success" with the created game, or an error
 data class CreateGameResponse(
     val msg: String?,
-    @SerializedName("game_id") val gameId: Int?,
+    val game: GameDto?,
     val error: String?
 )
 
@@ -110,15 +132,15 @@ object ServerApi {
 }
 
 /*  create game skeleton: asks the server to create its placeholder game for the
-    signed in user. Returns true if it was created. The server sends a debug
-    push notification about it a few seconds later
+    signed in user. Returns the created game, or null if it failed. The server
+    sends a debug push notification about it a few seconds later
  */
-suspend fun createDebugGame(): Boolean {
-    val jwt = jwtToken ?: return false
+suspend fun createDebugGame(): GameDto? {
+    val jwt = jwtToken ?: return null
     return try {
-        val response = ServerApi.retrofitService.createGame(authorization = "Bearer $jwt")
-        response.isSuccessful && response.body()?.msg == "success"
+        val body = ServerApi.retrofitService.createGame(authorization = "Bearer $jwt").body()
+        body?.game?.takeIf { body.msg == "success" }
     } catch (e: Exception) {
-        false
+        null
     }
 }

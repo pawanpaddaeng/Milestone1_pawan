@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import com.example.cpen321application.ui.screens.SignInScreen
 import com.example.cpen321application.ui.screens.SignUpScreen
 import com.example.cpen321application.ui.screens.sampleJoinedGames
 import com.example.cpen321application.ui.screens.sampleOrganizedGames
+import com.example.cpen321application.ui.screens.toGameSummary
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -197,16 +199,22 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
 
         composable("home") {
-            // TODO: replace the sample games with the user's games from the backend
+            // TODO: load the user's games from the backend (get games api),
+            // the sample games are placeholders until then
+            val organizedGames = remember { mutableStateListOf(*sampleOrganizedGames.toTypedArray()) }
+
             HomeScreen(
                 joinedGames = sampleJoinedGames,
-                organizedGames = sampleOrganizedGames,
+                organizedGames = organizedGames,
                 modifier = modifier,
                 // create game skeleton: the server creates a placeholder game and
                 // sends a debug notification about it 5 seconds later
                 onCreateGame = {
                     scope.launch {
-                        val message = if (createDebugGame()) {
+                        val game = createDebugGame()
+                        val message = if (game != null) {
+                            // show the new game right away, at the top of Organized Games
+                            organizedGames.add(0, game.toGameSummary())
                             "Game created, a test notification arrives in 5 seconds"
                         } else {
                             "Could not create game"

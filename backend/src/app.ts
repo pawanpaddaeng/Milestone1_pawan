@@ -4,7 +4,7 @@ import WebSocket from 'ws'
 import { createAuthToken } from './auth/jwt';
 import { getAuthUser, requireAuth } from './auth/middleware';
 import { MAX_FCM_TOKEN_LENGTH, saveDeviceToken } from './db/deviceTokens';
-import { createGame, type NewGame } from './db/games';
+import { createGame, gameJson, getGameById, type NewGame } from './db/games';
 import { sendPushToUser } from './notifications/push';
 
 // how long after creating a game the debug notification is sent
@@ -270,6 +270,11 @@ export function createApp(): Express {
     try {
       const gameId = await createGame(game);
       console.log(`Game created id:`, gameId);
+      // read it back so the app gets the stored values (times, player count, status, ...)
+      const created = await getGameById(gameId);
+      if (!created) {
+        throw new Error(`Game ${gameId} not found after creating it`);
+      }
 
       // debugging: notify the organizer shortly after to check push notifications work
       setTimeout(() => {
@@ -280,7 +285,7 @@ export function createApp(): Express {
         }).then((devices) => console.log(`Debug game notification sent to ${devices} device(s)`));
       }, DEBUG_NOTIFICATION_DELAY_MS);
 
-      return res.status(201).json({ msg: 'success', game_id: gameId });
+      return res.status(201).json({ msg: 'success', game: gameJson(created) });
     } catch (error) {
       console.error('Creating game failed:', error);
       return res.status(500).json({ msg: 'server_error', error: 'Could not create game, try again later' });
