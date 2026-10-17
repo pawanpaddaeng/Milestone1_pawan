@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,9 +29,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cpen321application.GameDto
 import com.example.cpen321application.ui.components.AppBottomBar
 import com.example.cpen321application.ui.components.BottomTab
 import com.example.cpen321application.ui.theme.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /*  short summary of a game used by the cards on the home screen
     pendingRequests is only used for games the user organizes
@@ -45,6 +51,27 @@ data class GameSummary(
     val maxPlayers: Int,
     val pendingRequests: Int = 0
 )
+
+// e.g. "Sat, Oct 18 · 3:00 PM" in the phone's time zone
+private val cardDateFormat = DateTimeFormatter.ofPattern("EEE, MMM d · h:mm a", Locale.getDefault())
+
+// turns a game from the server into what the home screen card shows
+fun GameDto.toGameSummary(): GameSummary {
+    val dateTime = try {
+        Instant.parse(startsAt).atZone(ZoneId.systemDefault()).format(cardDateFormat)
+    } catch (e: Exception) {
+        startsAt
+    }
+    return GameSummary(
+        id = gameId.toString(),
+        sport = sport.replaceFirstChar { it.titlecase(Locale.getDefault()) },
+        title = title,
+        dateTime = dateTime,
+        location = locationName,
+        playerCount = playerCount,
+        maxPlayers = maxPlayers
+    )
+}
 
 // placeholder games shown until the backend provides real ones
 val sampleJoinedGames = listOf(
@@ -66,6 +93,7 @@ fun HomeScreen(
     organizedGames: List<GameSummary>,
     modifier: Modifier = Modifier,
     onCreateGame: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onGameClick: (GameSummary) -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
@@ -99,10 +127,10 @@ fun HomeScreen(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onCreateGame) {
+                    IconButton(onClick = onRefresh) {
                         Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Create game",
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh",
                             tint = SportsOnSurface
                         )
                     }

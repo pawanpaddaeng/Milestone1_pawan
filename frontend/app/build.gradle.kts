@@ -7,6 +7,13 @@ plugins {
     //id("org.jetbrains.kotlin.plugin.serialization") version "1.8.10"
 }
 
+// Firebase reads its project config from app/google-services.json (downloaded from
+// the Firebase console). The plugin is only applied when the file exists so the app
+// still builds without it; push notification registration is skipped in that case.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+}
+
 // Machine-specific config (SDK path, backend URL, OAuth client ID) lives in
 // local.properties, which is gitignored. See local.properties.example.
 val localProperties = Properties()
@@ -98,4 +105,8 @@ dependencies {
     //navigation dependency and okhttp for websocket
     implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    //firebase cloud messaging for push notifications
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 }

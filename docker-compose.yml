@@ -12,6 +12,12 @@ services:
       - "8080:8080"
     env_file:
       - path: ./backend/.env
+    # Firebase service account key for sending push notifications. Mounted instead of
+    # copied (it's in .dockerignore) so the secret never ends up in the image.
+    # GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json in backend/.env
+    # resolves to this path since the container's working directory is /app.
+    volumes:
+      - ./backend/firebase-service-account.json:/app/firebase-service-account.json:ro
     environment:
       # MongoDB disabled to save memory on the 1 GB EC2 instance (backend doesn't use it yet).
       # MONGODB_URI: mongodb://mongo:27017/cpen321
