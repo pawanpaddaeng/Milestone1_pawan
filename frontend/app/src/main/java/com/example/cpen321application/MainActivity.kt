@@ -21,6 +21,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -34,6 +36,9 @@ import androidx.credentials.exceptions.NoCredentialException
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.cpen321application.ui.screens.CreateGameScreen
+import com.example.cpen321application.ui.screens.GameLocation
+import com.example.cpen321application.ui.screens.PickLocationScreen
 import com.example.cpen321application.ui.screens.HomeScreen
 import com.example.cpen321application.ui.screens.SignInScreen
 import com.example.cpen321application.ui.screens.SignUpScreen
@@ -92,6 +97,9 @@ var jwtToken: String? = null
 // savedStateHandle key for a message shown on the sign in screen
 private const val SIGN_IN_MESSAGE_KEY = "sign_in_message"
 
+// savedStateHandle key for the place chosen on the Pick Location screen
+private const val PICKED_LOCATION_KEY = "picked_location"
+
 /*
     App navigation composable:
     Deals with the screens in ui/screens and handles
@@ -114,6 +122,11 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             "sign_in"
         }
     }
+
+    // games shown on Home. Kept here so they survive going to other screens and back
+    // TODO: load the user's games from the backend (get games api),
+    // the sample games are placeholders until then
+    val organizedGames = remember { mutableStateListOf(*sampleOrganizedGames.toTypedArray()) }
 
     // forget the session and show sign in with a message, clearing every other screen
     fun returnToSignIn() {
@@ -199,29 +212,61 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
 
         composable("home") {
-            // TODO: load the user's games from the backend (get games api),
-            // the sample games are placeholders until then
-            val organizedGames = remember { mutableStateListOf(*sampleOrganizedGames.toTypedArray()) }
-
             HomeScreen(
                 joinedGames = sampleJoinedGames,
                 organizedGames = organizedGames,
                 modifier = modifier,
-                // create game skeleton: the server creates a placeholder game and
-                // sends a debug notification about it 5 seconds later
-                onCreateGame = {
+                onCreateGame = { navController.navigate("create_game") }
+            )
+        }
+
+        composable("create_game") { backStackEntry ->
+            var isSubmitting by remember { mutableStateOf(false) }
+            // set by the Pick Location screen when the user confirms a place
+            val pickedLocation by backStackEntry.savedStateHandle
+                .getStateFlow<GameLocation?>(PICKED_LOCATION_KEY, null)
+                .collectAsState()
+
+            CreateGameScreen(
+                isSubmitting = isSubmitting,
+                location = pickedLocation,
+                onBack = { navController.popBackStack() },
+                onPickLocation = { navController.navigate("pick_location") },
+                onCreate = { form ->
+                    isSubmitting = true
                     scope.launch {
+                        // TODO: send the form once the create game api accepts it, the server
+                        // still creates its placeholder game and a debug notification 5 seconds later
                         val game = createDebugGame()
-                        val message = if (game != null) {
+                        isSubmitting = false
+                        if (game != null) {
                             // show the new game right away, at the top of Organized Games
                             organizedGames.add(0, game.toGameSummary())
-                            "Game created, a test notification arrives in 5 seconds"
+                            Toast.makeText(context, "Game created", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
                         } else {
-                            "Could not create game"
+                            Toast.makeText(context, "Could not create game, try again", Toast.LENGTH_SHORT).show()
                         }
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
-                }
+                },
+                modifier = modifier
+            )
+        }
+
+        composable("pick_location") {
+            // start the map at the place already chosen on Create Game, if any
+            val currentLocation = remember {
+                navController.previousBackStackEntry?.savedStateHandle?.get<GameLocation>(PICKED_LOCATION_KEY)
+            }
+
+            PickLocationScreen(
+                initialLocation = currentLocation,
+                onLocationPicked = { location ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(PICKED_LOCATION_KEY, location)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() },
+                modifier = modifier
             )
         }
     }
