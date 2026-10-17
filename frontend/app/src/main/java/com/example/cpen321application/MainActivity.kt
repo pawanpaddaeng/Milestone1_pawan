@@ -12,9 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -32,6 +36,7 @@ import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 /*
     The main activity class that connects our navigation and
@@ -56,8 +61,8 @@ class MainActivity : ComponentActivity() {
 var firstName: String? = "Not"
 var lastName: String? = "Logged In"
 
-// JWT from the server after sign up / sign in, sent with future requests
-// TODO: store securely so the user stays signed in after the app closes
+// JWT from the server after sign up / sign in, sent with future requests.
+// Also saved with AuthTokenStore so the user stays signed in after the app closes
 var jwtToken: String? = null
 
 // savedStateHandle key for a message shown on the sign in screen
@@ -71,17 +76,65 @@ private const val SIGN_IN_MESSAGE_KEY = "sign_in_message"
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    // go to the home screen and remove sign in/up so back doesn't return to them
-    fun navigateToHome() {
+    // sign in automatically with a token from a previous session, if it expired
+    // the notification registration below renews it
+    val startDestination = remember {
+        val savedToken = AuthTokenStore.load(context)
+        if (savedToken != null) {
+            jwtToken = savedToken
+            "home"
+        } else {
+            "sign_in"
+        }
+    }
+
+    // forget the session and show sign in with a message, clearing every other screen
+    fun returnToSignIn() {
+        jwtToken = null
+        AuthTokenStore.clear(context)
+        navController.navigate("sign_in") {
+            popUpTo(navController.graph.id) { inclusive = true }
+        }
+        navController.currentBackStackEntry?.savedStateHandle?.set(
+            SIGN_IN_MESSAGE_KEY,
+            "Your session ended. Please sign in again."
+        )
+    }
+
+    // send this device's Firebase token to the server, renewing an expired JWT
+    // silently if needed. Goes back to sign in if the session can't be used
+    fun registerNotifications() {
+        scope.launch {
+            if (NotificationRegistration.register(context) == NotifRegistrationResult.SIGN_IN_REQUIRED) {
+                returnToSignIn()
+            }
+        }
+    }
+
+    // keep the token for this session and future launches, then go home
+    // and remove sign in/up so back doesn't return to them
+    fun completeSignIn(token: String) {
+        jwtToken = token
+        AuthTokenStore.save(context, token)
         navController.navigate("home") {
             popUpTo("sign_in") { inclusive = true }
+        }
+        registerNotifications()
+    }
+
+    // signed in from a previous session: register notifications once at start
+    LaunchedEffect(Unit) {
+        if (startDestination == "home") {
+            registerNotifications()
         }
     }
 
     NavHost(
         navController = navController,
-        startDestination = "sign_in"
+        startDestination = startDestination
     ) {
         composable("sign_in") { backStackEntry ->
             // message left by another screen, e.g. sign up when the account already exists
@@ -90,10 +143,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 .collectAsState()
 
             SignInScreen(
-                onSignedIn = { token ->
-                    jwtToken = token
-                    navigateToHome()
-                },
+                onSignedIn = { token -> completeSignIn(token) },
                 onNavigateToSignUp = {
                     backStackEntry.savedStateHandle[SIGN_IN_MESSAGE_KEY] = null
                     navController.navigate("sign_up")
@@ -108,8 +158,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onSignedUp = { details, token ->
                     firstName = details.firstName
                     lastName = details.lastName
-                    jwtToken = token
-                    navigateToHome()
+                    completeSignIn(token)
                 },
                 onAlreadyExists = {
                     // go back to sign in and tell the user to sign in instead
@@ -207,4 +256,41 @@ suspend fun triggerGoogleSignIn(context: Context): String? {
             null
         }
 
+}
+
+/*
+    Silent Google sign in used to renew an expired session: only offers accounts
+    that already signed into this app and picks one automatically, so the user
+    normally sees no prompt. Returns the Google id token, or null if it can't
+    sign in without the user's help
+ */
+suspend fun triggerSilentGoogleSignIn(context: Context): String? {
+    val activityContext = context.findActivity() ?: return null
+    val credentialManager = CredentialManager.create(context)
+
+    val googleIdOption = GetGoogleIdOption.Builder()
+        .setFilterByAuthorizedAccounts(true)
+        .setAutoSelectEnabled(true)
+        .setServerClientId(BuildConfig.GOOGLE_CLIENT_ID)
+        .build()
+
+    val request = GetCredentialRequest.Builder()
+        .addCredentialOption(googleIdOption)
+        .build()
+
+    return try {
+        val credential = credentialManager.getCredential(
+            request = request,
+            context = MutableContextWrapper(activityContext)
+        ).credential
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) {
+            GoogleIdTokenCredential.createFrom(credential.data).idToken
+        } else {
+            null
+        }
+    } catch (e: GetCredentialException) {
+        null
+    }
 }

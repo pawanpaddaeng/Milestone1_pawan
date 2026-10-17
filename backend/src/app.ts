@@ -2,6 +2,8 @@ import express, { type Express, type Request, type Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import WebSocket from 'ws'
 import { createAuthToken } from './auth/jwt';
+import { getAuthUser, requireAuth } from './auth/middleware';
+import { MAX_FCM_TOKEN_LENGTH, saveDeviceToken } from './db/deviceTokens';
 import { createUser, findUserByGoogleId, isDuplicateEntryError, userExists } from './db/users';
 
 // youngest and oldest ages allowed to sign up, matches the app's birth year picker
@@ -211,6 +213,30 @@ export function createApp(): Express {
     } catch (error) {
       console.error('Login failed:', error);
       return res.status(500).json({ msg: 'server_error', error: 'Could not sign in, try again later' });
+    }
+  });
+
+  /*  saves the device's Firebase token for the signed in user so the server
+      can send them push notifications. requireAuth checks the JWT first
+   */
+  app.post('/api/register_notif', requireAuth, async (req: Request, res: Response) => {
+    const fcmToken: unknown = req.body?.fcm_token;
+    const user = getAuthUser(res);
+
+    if (typeof fcmToken !== 'string' || fcmToken.trim() === '' || fcmToken.length > MAX_FCM_TOKEN_LENGTH) {
+      return res.status(400).json({
+        msg: 'invalid_request',
+        error: `fcm_token is required (max ${MAX_FCM_TOKEN_LENGTH} characters)`,
+      });
+    }
+
+    try {
+      await saveDeviceToken(fcmToken.trim(), user.userId);
+      console.log(`Registered notification token for user id:`, user.userId);
+      return res.status(200).json({ msg: 'success' });
+    } catch (error) {
+      console.error('Registering notification token failed:', error);
+      return res.status(500).json({ msg: 'server_error', error: 'Could not register notifications, try again later' });
     }
   });
 

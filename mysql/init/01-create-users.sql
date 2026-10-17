@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(100) NOT NULL,
     last_name  VARCHAR(100) NOT NULL,
     birth_year SMALLINT UNSIGNED NOT NULL,
+    -- when the account was created, JWTs issued before this (e.g. for a deleted
+    -- user whose user_id was reused) are rejected
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
     UNIQUE KEY uq_users_google_id (google_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
