@@ -4,6 +4,11 @@ import WebSocket from 'ws'
 import { createAuthToken } from './auth/jwt';
 import { getAuthUser, requireAuth } from './auth/middleware';
 import { MAX_FCM_TOKEN_LENGTH, saveDeviceToken } from './db/deviceTokens';
+import { createGame, type NewGame } from './db/games';
+import { sendPushToUser } from './notifications/push';
+
+// how long after creating a game the debug notification is sent
+const DEBUG_NOTIFICATION_DELAY_MS = 5000;
 import { createUser, findUserByGoogleId, isDuplicateEntryError, userExists } from './db/users';
 
 // youngest and oldest ages allowed to sign up, matches the app's birth year picker
@@ -237,6 +242,48 @@ export function createApp(): Express {
     } catch (error) {
       console.error('Registering notification token failed:', error);
       return res.status(500).json({ msg: 'server_error', error: 'Could not register notifications, try again later' });
+    }
+  });
+
+  /*  create game skeleton: always creates the same game for the signed in user,
+      then sends them a push notification after a few seconds to test notifications.
+      TODO: take the game details from the request body (Create Game form)
+   */
+  app.post('/api/games', requireAuth, async (_req: Request, res: Response) => {
+    const user = getAuthUser(res);
+    const startsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const game: NewGame = {
+      organizerId: user.userId,
+      title: 'Pickup Basketball',
+      sport: 'basketball',
+      description: 'Placeholder game created by the create game skeleton.',
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + 2 * 60 * 60 * 1000),
+      locationName: 'UBC Rec Centre',
+      address: '6000 Student Union Blvd, Vancouver, BC',
+      latitude: 49.2681,
+      longitude: -123.2493,
+      maxPlayers: 10,
+      skillLevel: 'any',
+    };
+
+    try {
+      const gameId = await createGame(game);
+      console.log(`Game created id:`, gameId);
+
+      // debugging: notify the organizer shortly after to check push notifications work
+      setTimeout(() => {
+        void sendPushToUser(user.userId, {
+          title: 'Game created',
+          body: `${game.title} at ${game.locationName} was created`,
+          data: { type: 'game_created', gameId: String(gameId) },
+        }).then((devices) => console.log(`Debug game notification sent to ${devices} device(s)`));
+      }, DEBUG_NOTIFICATION_DELAY_MS);
+
+      return res.status(201).json({ msg: 'success', game_id: gameId });
+    } catch (error) {
+      console.error('Creating game failed:', error);
+      return res.status(500).json({ msg: 'server_error', error: 'Could not create game, try again later' });
     }
   });
 

@@ -1,13 +1,18 @@
 package com.example.cpen321application
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.MutableContextWrapper
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -19,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -44,15 +50,31 @@ import kotlinx.coroutines.launch
     Used as provided in the template
  */
 class MainActivity : ComponentActivity() {
+    // result ignored: if denied, notifications just aren't shown
+    private val notificationPermissionRequest =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        createNotificationChannel(this)
+        requestNotificationPermission()
         setContent {
             CPEN321ApplicationTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     AppNavigation(modifier = Modifier.padding(innerPadding))
                 }
             }
+        }
+    }
+
+    // Android 13+ asks the user before an app can show notifications
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionRequest.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }
@@ -179,7 +201,19 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             HomeScreen(
                 joinedGames = sampleJoinedGames,
                 organizedGames = sampleOrganizedGames,
-                modifier = modifier
+                modifier = modifier,
+                // create game skeleton: the server creates a placeholder game and
+                // sends a debug notification about it 5 seconds later
+                onCreateGame = {
+                    scope.launch {
+                        val message = if (createDebugGame()) {
+                            "Game created, a test notification arrives in 5 seconds"
+                        } else {
+                            "Could not create game"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
             )
         }
     }

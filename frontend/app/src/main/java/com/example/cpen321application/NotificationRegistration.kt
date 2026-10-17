@@ -52,6 +52,17 @@ object NotificationRegistration {
         }
     }
 
+    /*  sends a token Firebase just replaced (onNewToken). This can run while the
+        app is closed, so it can't renew an expired session or show sign in: it
+        only sends the token if a saved JWT exists and ignores failures. The next
+        app launch runs register() again, which handles renewal
+     */
+    suspend fun registerNewToken(context: Context, fcmToken: String) {
+        val jwt = jwtToken ?: AuthTokenStore.load(context) ?: return
+        val reply = sendToken(jwt, fcmToken)
+        Log.d(TAG, "Sent new Firebase token, server reply: $reply")
+    }
+
     private suspend fun sendToken(jwt: String, fcmToken: String): Reply {
         return try {
             val response = ServerApi.retrofitService.registerNotif(

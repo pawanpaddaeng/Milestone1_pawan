@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,6 +67,7 @@ fun HomeScreen(
     organizedGames: List<GameSummary>,
     modifier: Modifier = Modifier,
     onCreateGame: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onGameClick: (GameSummary) -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
@@ -99,10 +101,10 @@ fun HomeScreen(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onCreateGame) {
+                    IconButton(onClick = onRefresh) {
                         Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Create game",
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh",
                             tint = SportsOnSurface
                         )
                     }

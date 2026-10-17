@@ -1,7 +1,6 @@
 package com.example.cpen321application
 
 import retrofit2.Retrofit
-import retrofit2.http.GET
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.converter.gson.GsonConverterFactory
@@ -63,20 +62,14 @@ data class RegisterNotifRequest(
     @SerializedName("fcm_token") val fcmToken: String
 )
 
-data class ServerInfo(
-    val msg : String
+// reply from POST api/games: msg "success" with the new game's id, or an error
+data class CreateGameResponse(
+    val msg: String?,
+    @SerializedName("game_id") val gameId: Int?,
+    val error: String?
 )
 
 interface NetworkConnection {
-    @GET("getIP4")
-    suspend fun getServerIp4() : Response<ServerInfo>
-
-    @GET("getTime")
-    suspend fun  getServerTime() : Response<ServerInfo>
-
-    @GET("getAuthorName")
-    suspend fun getAuthName() : User
-
     @POST("api/auth/google")
     suspend fun authAndInfo(@Body request: AuthRequest) : Response<AuthResponse>
 
@@ -92,6 +85,10 @@ interface NetworkConnection {
         @Header("Authorization") authorization: String,
         @Body request: RegisterNotifRequest
     ) : Response<AuthTokenResponse>
+
+    // create game skeleton: the server always creates the same game for now
+    @POST("api/games")
+    suspend fun createGame(@Header("Authorization") authorization: String) : Response<CreateGameResponse>
 }
 
 /*  reads the json reply of the auth style endpoints, error responses (4xx/5xx)
@@ -109,5 +106,19 @@ fun readAuthResponse(response: Response<AuthTokenResponse>): AuthTokenResponse? 
 object ServerApi {
     val retrofitService : NetworkConnection by lazy {
         retrofit.create(NetworkConnection::class.java)
+    }
+}
+
+/*  create game skeleton: asks the server to create its placeholder game for the
+    signed in user. Returns true if it was created. The server sends a debug
+    push notification about it a few seconds later
+ */
+suspend fun createDebugGame(): Boolean {
+    val jwt = jwtToken ?: return false
+    return try {
+        val response = ServerApi.retrofitService.createGame(authorization = "Bearer $jwt")
+        response.isSuccessful && response.body()?.msg == "success"
+    } catch (e: Exception) {
+        false
     }
 }
